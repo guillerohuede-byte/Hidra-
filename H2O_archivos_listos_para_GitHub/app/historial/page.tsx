@@ -28,10 +28,12 @@ export default function Historial() {
   const week = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
-    const total = totalMl(entriesForDate(h.entries, localDateKey(d)));
-    return { label: i === 6 ? "Hoy" : shortWeekday(d), total };
+    const key = localDateKey(d);
+    const total = totalMl(entriesForDate(h.entries, key));
+    // Cada día se compara con SU meta guardada (cambiar la meta no reescribe el pasado)
+    return { label: i === 6 ? "Hoy" : shortWeekday(d), total, goal: h.goalForDay(key) };
   });
-  const max = Math.max(...week.map((w) => w.total), h.goal) * 1.1;
+  const max = Math.max(...week.map((w) => Math.max(w.total, w.goal))) * 1.1;
   const weekTotal = week.reduce((a, w) => a + w.total, 0);
   const daysWithData = week.filter((w) => w.total > 0).length;
   const avg = daysWithData ? Math.round(weekTotal / daysWithData) : 0;
@@ -89,14 +91,14 @@ export default function Historial() {
                 className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-h2o-300"
                 style={{ bottom: `${(h.goal / max) * 100}%` }}
               >
-                <span className="absolute -top-5 right-0 text-[10px] font-semibold text-h2o-500">Meta</span>
+                <span className="absolute -top-5 right-0 text-[10px] font-semibold text-h2o-500">Meta de hoy</span>
               </div>
               {week.map((w, i) => (
                 <div key={i} className="flex h-full flex-1 flex-col items-center justify-end">
                   <div
-                    className={`w-full max-w-10 rounded-t-xl ${w.total >= h.goal ? "bg-h2o-500" : "bg-h2o-200"}`}
+                    className={`w-full max-w-10 rounded-t-xl ${w.total >= w.goal ? "bg-h2o-500" : "bg-h2o-200"}`}
                     style={{ height: `${(w.total / max) * 100}%`, minHeight: w.total ? 4 : 0 }}
-                    title={ml(w.total)}
+                    title={`${ml(w.total)} de ${ml(w.goal)}`}
                   />
                 </div>
               ))}

@@ -3,7 +3,7 @@
 import { supabaseBrowser } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Bottle, IntakeEntry } from "@/lib/types";
-import type { Backend, BottleInput, ImportPayload, ImportResult, Pet, Profile, Reward, Snapshot, Summary } from "./types";
+import type { Backend, BottleInput, HydrationProfile, ImportPayload, ImportResult, Pet, Profile, Reward, Snapshot, Summary } from "./types";
 
 type Row<T extends keyof Database["public"]["Tables"]> = Database["public"]["Tables"][T]["Row"];
 
@@ -56,7 +56,7 @@ const toReward = (r: Row<"reward_events">): Reward => ({
   id: r.id,
   key: r.key,
   kind: r.kind,
-  label: r.label,
+  label: r.label.replace(/\bH2O\b/g, "Hidra"), // premios antiguos guardados con la marca anterior (no se modifica la base)
   gotitas: r.gotitas,
   xp: r.xp,
   shields: r.shields,
@@ -66,6 +66,7 @@ const toReward = (r: Row<"reward_events">): Reward => ({
 type SummaryJson = {
   today: string; xp: number; level: number; level_xp_start: number; level_xp_next: number; gotitas: number;
   shields: number; current_streak: number; best_streak: number; active_today: boolean; freezes: string[];
+  today_goal_ml?: number; base_goal_ml?: number; training_extra_ml?: number; training_today?: boolean;
 };
 const toSummary = (j: SummaryJson): Summary => ({
   today: j.today,
@@ -79,6 +80,10 @@ const toSummary = (j: SummaryJson): Summary => ({
   bestStreak: j.best_streak,
   activeToday: j.active_today,
   freezes: j.freezes ?? [],
+  todayGoalMl: j.today_goal_ml ?? j.base_goal_ml ?? 2000,
+  baseGoalMl: j.base_goal_ml ?? 2000,
+  trainingExtraMl: j.training_extra_ml ?? 0,
+  trainingToday: !!j.training_today,
 });
 
 export class SupabaseBackend implements Backend {
@@ -133,7 +138,7 @@ export class SupabaseBackend implements Backend {
     if (!user) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
     const since = new Date(Date.now() - HISTORY_DAYS * 86400000).toISOString().slice(0, 10);
 
-    const [p, pet, bottles, entries, inv, eq, rewards, keys, summary, shop] = await Promise.all([
+    const [p, pet, bottles, entries, inv, eq, rewards, keys, summary, shop, hyd, goals] = await Promise.all([
       this.sb.from("profiles").select("*").eq("id", user.id).single(),
       this.sb.from("pets").select("*").maybeSingle(),
       this.sb.from("bottles").select("*").order("created_at"),
@@ -144,6 +149,8 @@ export class SupabaseBackend implements Backend {
       this.sb.from("reward_events").select("key").limit(10000),
       this.sb.rpc("game_summary"),
       this.sb.from("shop_items").select("id, price, purchasable"),
+      this.sb.from("hydration_profiles").select("*").maybeSingle(),
+      this.sb.from("daily_goals").select("day, base_ml, extra_ml, training").gte("day", since),
     ]);
     const pr = check(p);
     this.tz = pr.timezone;
@@ -157,7 +164,10 @@ export class SupabaseBackend implements Backend {
       reduceMotion: pr.reduce_motion,
       selectedBottleId: pr.selected_bottle_id,
       localImportDoneAt: pr.local_import_done_at,
+      trainingExtraMl: pr.training_extra_ml ?? 0,
+      goalSource: pr.goal_source === "calculada" ? "calculada" : "manual",
     };
+    const h = ok(hyd);
     const petRow = ok(pet);
     return {
       profile,
@@ -170,6 +180,20 @@ export class SupabaseBackend implements Backend {
       rewardKeys: check(keys).map((r) => r.key),
       summary: toSummary(check(summary) as unknown as SummaryJson),
       shop: check(shop),
+      hydration: h
+        ? {
+            ageRange: h.age_range as HydrationProfile["ageRange"],
+            weightKg: Number(h.weight_kg),
+            exerciseMinutes: h.exercise_minutes as HydrationProfile["exerciseMinutes"],
+            intensity: (h.exercise_intensity as HydrationProfile["intensity"]) ?? null,
+            heat: h.heat as HydrationProfile["heat"],
+            methodVersion: h.method_version,
+            recommendedBaseMl: h.recommended_base_ml,
+            recommendedExtraMl: h.recommended_extra_ml,
+            updatedAt: h.updated_at,
+          }
+        : null,
+      dayGoals: Object.fromEntries((ok(goals) ?? []).map((g) => [g.day, g.base_ml + (g.training ? g.extra_ml : 0)])),
     };
   }
 
@@ -186,8 +210,35 @@ export class SupabaseBackend implements Backend {
     if (patch.onboarded !== undefined) row.onboarded = patch.onboarded;
     if (patch.reduceMotion !== undefined) row.reduce_motion = patch.reduceMotion;
     if (patch.selectedBottleId !== undefined) row.selected_bottle_id = patch.selectedBottleId;
+    if (patch.trainingExtraMl !== undefined) row.training_extra_ml = patch.trainingExtraMl;
+    if (patch.goalSource !== undefined) row.goal_source = patch.goalSource;
     ok(await this.sb.from("profiles").update(row).eq("id", id));
     if (patch.timezone) this.tz = patch.timezone;
+  }
+
+  async setTrainingToday(training: boolean) {
+    ok(await this.sb.rpc("set_training_today", { p_training: training }));
+  }
+
+  async saveHydration(h: Omit<HydrationProfile, "updatedAt"> | null) {
+    const id = await this.uid();
+    if (!h) {
+      ok(await this.sb.from("hydration_profiles").delete().eq("user_id", id));
+      return;
+    }
+    ok(
+      await this.sb.from("hydration_profiles").upsert({
+        user_id: id,
+        age_range: h.ageRange,
+        weight_kg: h.weightKg,
+        exercise_minutes: h.exerciseMinutes,
+        exercise_intensity: h.exerciseMinutes ? h.intensity : null,
+        heat: h.heat,
+        method_version: h.methodVersion,
+        recommended_base_ml: h.recommendedBaseMl,
+        recommended_extra_ml: h.recommendedExtraMl,
+      }),
+    );
   }
 
   async savePet(pet: Pet) {

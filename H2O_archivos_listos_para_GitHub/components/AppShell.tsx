@@ -126,7 +126,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <p className="mt-auto text-xs leading-relaxed text-muted">
-          H2O es una herramienta de seguimiento de hábitos. No reemplaza recomendaciones médicas.
+          Hidra es una herramienta de seguimiento de hábitos. No reemplaza recomendaciones médicas.
         </p>
       </aside>
 

@@ -15,6 +15,8 @@ import { useH2O } from "@/lib/store";
 import { useGame } from "@/lib/useGame";
 import PetStage from "@/components/pet/PetStage";
 import GameChips from "@/components/GameChips";
+import TrainingToggle from "@/components/TrainingToggle";
+import GoalInvite from "@/components/GoalInvite";
 
 export default function Inicio() {
   const h = useHydration();
@@ -51,6 +53,8 @@ export default function Inicio() {
         <GameChips />
       </header>
 
+      <GoalInvite />
+
       {/* Mascota */}
       <section className="relative mb-4 overflow-hidden rounded-3xl bg-gradient-to-b from-h2o-100 via-h2o-50 to-white px-4 pb-3 pt-4 ring-1 ring-h2o-100">
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-16 bg-[radial-gradient(ellipse_at_bottom,rgba(56,189,248,0.25),transparent_70%)]" />
@@ -83,7 +87,7 @@ export default function Inicio() {
             className="flex items-center gap-3 rounded-2xl bg-h2o-50 px-4 py-3 md:flex-col md:items-start md:gap-1"
           >
             <span className="flex flex-1 items-center justify-between gap-6 text-xs font-semibold text-muted md:w-full">
-              Meta diaria <Pencil size={14} />
+              Meta de hoy <Pencil size={14} />
             </span>
             <span className="flex items-center gap-1.5 text-lg font-bold text-navy" data-testid="goal">
               <Droplet size={16} className="text-h2o-500" fill="currentColor" /> {ml(h.goal)}
@@ -123,6 +127,8 @@ export default function Inicio() {
             </>
           )}
         </p>
+
+        <div className="mt-4"><TrainingToggle compact /></div>
 
         <button
           onClick={() => setSheetOpen(true)}

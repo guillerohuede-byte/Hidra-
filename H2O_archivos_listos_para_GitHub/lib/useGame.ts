@@ -25,7 +25,8 @@ export function useGame() {
 
     const missions: MissionView[] = MISSIONS.map((m) => {
       const done = today ? keys.has(m.key(today)) : false;
-      const progress = done ? m.target : Math.min(missionProgress(m, { today, goalMl, entries, ownedPurchased, keys, goalsMet }), m.target);
+      const dayGoals = { ...(d?.dayGoals ?? {}), ...(today && d ? { [today]: d.summary.todayGoalMl } : {}) };
+      const progress = done ? m.target : Math.min(missionProgress(m, { today, goalMl, dayGoals, entries, ownedPurchased, keys, goalsMet }), m.target);
       return { ...m, progress, done };
     });
 
@@ -41,7 +42,7 @@ export function useGame() {
     const goalDays = new Set<string>();
     const byDay = new Map<string, number>();
     for (const e of entries.filter((x) => !x.imported)) byDay.set(e.localDate, (byDay.get(e.localDate) ?? 0) + e.amountMl);
-    for (const [day, ml] of byDay) if (ml >= goalMl) goalDays.add(day);
+    for (const [day, ml] of byDay) if (ml >= (d?.dayGoals?.[day] ?? goalMl)) goalDays.add(day);
     const freezes = new Set(sum?.freezes ?? []);
 
     const owned = new Set((d?.inventory ?? []).map((i) => i.itemId));

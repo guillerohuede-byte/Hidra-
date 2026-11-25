@@ -5,10 +5,10 @@ import AppShell from "@/components/AppShell";
 import { H2OProvider } from "@/lib/store";
 
 export const metadata: Metadata = {
-  title: "H2O — Tu hidratación, simple",
+  title: { default: "Hidra — Tu hidratación, simple", template: "%s · Hidra" },
   description: "Registra tu consumo de agua con tu botella de siempre y cuida a tu compañero.",
-  applicationName: "H2O",
-  appleWebApp: { capable: true, title: "H2O", statusBarStyle: "default" },
+  applicationName: "Hidra",
+  appleWebApp: { capable: true, title: "Hidra", statusBarStyle: "default" },
   formatDetection: { telephone: false },
 };
 

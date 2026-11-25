@@ -60,14 +60,16 @@ async def main():
         ok(3, "Cuenta nueva va al onboarding y guarda el destino", "next=%2Fnfc%2FBLEGACY2" in pg.url, pg.url)
         await pg.fill("#ob-name", "Benja"); await pg.screenshot(path=S + "02-onboarding-nombre.png")
         await pg.get_by_test_id("ob-next").click()
-        await pg.get_by_role("button", name="2.500 ml").click(); await pg.screenshot(path=S + "03-onboarding-meta.png")
-        await pg.get_by_test_id("ob-next").click()
         await pg.get_by_test_id("species-ajolote").click(); await pg.wait_for_timeout(300)
         await pg.screenshot(path=S + "04-onboarding-mascota.png")
         await pg.get_by_test_id("ob-next").click()
         await pg.get_by_label("Nombre de tu compañero").fill("Glu")
         await pg.get_by_role("radio", name="Celeste").click()
         await pg.screenshot(path=S + "05-onboarding-nombre-mascota.png")
+        await pg.get_by_test_id("ob-next").click()
+        # Meta elegida a mano (el cálculo se prueba en test_hidra.py)
+        await pg.get_by_test_id("ob-manual").click()
+        await pg.get_by_role("button", name="2.500 ml").click(); await pg.screenshot(path=S + "03-onboarding-meta.png")
         await pg.get_by_test_id("ob-next").click()
 
         # 4. Vuelve al sticker: la botella vieja aún no está en la cuenta → no registra nada

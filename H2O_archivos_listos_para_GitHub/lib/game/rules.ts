@@ -100,7 +100,8 @@ export const MISSIONS: MissionDef[] = [
 
 export type GameState = {
   today: string;
-  goalMl: number;
+  goalMl: number; // meta actual (para días sin meta guardada)
+  dayGoals?: Record<string, number>; // meta guardada de cada día (no cambia si después se cambia la meta)
   onboarded: boolean;
   entries: RuleEntry[];
   freezes: string[];
@@ -114,9 +115,11 @@ export type GameState = {
 const live = (e: RuleEntry[]) => e.filter((x) => !x.imported);
 const byDate = (e: RuleEntry[], d: string) => e.filter((x) => x.localDate === d);
 const sum = (e: RuleEntry[]) => e.reduce((a, x) => a + x.amountMl, 0);
+/** Meta de un día: la guardada ese día; si no hay, la actual (igual que goal_for en la base) */
+export const goalOf = (s: Pick<GameState, "goalMl" | "dayGoals">, day: string) => s.dayGoals?.[day] ?? s.goalMl;
 
 /** Progreso de cada misión (para dibujar barras) */
-export function missionProgress(m: MissionDef, s: Pick<GameState, "today" | "goalMl" | "entries" | "ownedPurchased" | "keys" | "goalsMet">) {
+export function missionProgress(m: MissionDef, s: Pick<GameState, "today" | "goalMl" | "dayGoals" | "entries" | "ownedPurchased" | "keys" | "goalsMet">) {
   const e = live(s.entries);
   const today = byDate(e, s.today);
   const ws = weekStart(s.today);
@@ -124,10 +127,10 @@ export function missionProgress(m: MissionDef, s: Pick<GameState, "today" | "goa
   const weekDays = [...new Set(week.map((x) => x.localDate))];
   switch (m.id) {
     case "registro3": return today.length;
-    case "meta": return sum(today) >= s.goalMl ? 1 : 0;
+    case "meta": return sum(today) >= goalOf(s, s.today) ? 1 : 0;
     case "nfc": return today.some((x) => x.source === "nfc") ? 1 : 0;
     case "dias5": return weekDays.length;
-    case "metas3": return weekDays.filter((d) => sum(byDate(week, d)) >= s.goalMl).length;
+    case "metas3": return weekDays.filter((d) => sum(byDate(week, d)) >= goalOf(s, d)).length;
     case "nfc3": return week.filter((x) => x.source === "nfc").length;
     case "todas": return ["dias5", "metas3", "nfc3"].filter((id) => s.keys.has(MISSIONS.find((x) => x.id === id)!.key(s.today))).length;
     case "primer-registro": return e.length > 0 ? 1 : 0;
@@ -156,7 +159,7 @@ export function pendingRewards(s: GameState): { grants: Grant[]; freeze?: string
   let freeze: string | undefined;
   const freezes = new Set(s.freezes);
 
-  if (s.onboarded) give({ key: "welcome", kind: "bienvenida", label: "¡Bienvenida a H2O!", gotitas: ECONOMY.welcome, xp: 0 });
+  if (s.onboarded) give({ key: "welcome", kind: "bienvenida", label: "¡Bienvenida a Hidra!", gotitas: ECONOMY.welcome, xp: 0 });
   give({ key: `login:${s.today}`, kind: "diaria", label: "Recompensa diaria", ...ECONOMY.daily });
 
   // Escudo de Gota automático
@@ -175,7 +178,7 @@ export function pendingRewards(s: GameState): { grants: Grant[]; freeze?: string
     for (let k = 1; k <= Math.min(day.length, ECONOMY.drink.maxPerDay); k++) {
       give({ key: `drink:${d}:${k}`, kind: "registro", label: "Registro de agua", gotitas: ECONOMY.drink.gotitas, xp: ECONOMY.drink.xp });
     }
-    if (sum(day) >= s.goalMl) give({ key: `goal:${d}`, kind: "meta", label: "Meta diaria cumplida", ...ECONOMY.goal });
+    if (sum(day) >= goalOf(s, d)) give({ key: `goal:${d}`, kind: "meta", label: "Meta diaria cumplida", ...ECONOMY.goal });
   }
 
   const goalsMet = s.goalsMet + grants.filter((g) => g.kind === "meta").length;

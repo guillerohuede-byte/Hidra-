@@ -51,7 +51,7 @@ export default function Tienda() {
           <ItemCard key={it.id} item={it} species={pet.species} color={pet.color} owned={g.owned.has(it.id)} equipped={g.equipment[it.slot] === it.id} price={it.price} onClick={() => setItem(it)} />
         ))}
       </div>
-      <p className="mt-6 text-center text-xs text-muted">Todas las marcas son inventadas para H2O. No hay compras con dinero real.</p>
+      <p className="mt-6 text-center text-xs text-muted">Todas las marcas son inventadas para Hidra. No hay compras con dinero real.</p>
       <ItemSheet item={item} onClose={() => setItem(null)} onMessage={setToast} />
       <Toast message={toast} onDone={clearToast} />
     </>

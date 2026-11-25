@@ -9,7 +9,7 @@
 import { CATALOG, ITEMS_BY_ID, MAX_SHIELDS } from "@/lib/game/catalog";
 import { addDays, levelForXp, pendingRewards, streakStats, todayIn, xpForLevel } from "@/lib/game/rules";
 import type { Bottle, IntakeEntry } from "@/lib/types";
-import type { Backend, BottleInput, ImportPayload, Pet, Profile, Reward, Snapshot } from "./types";
+import type { Backend, BottleInput, HydrationProfile, ImportPayload, Pet, Profile, Reward, Snapshot } from "./types";
 
 const KEY = "h2o:mock:db";
 type DB = {
@@ -22,13 +22,15 @@ type DB = {
   equipment: Record<string, string>;
   rewards: Reward[];
   freezes: string[];
+  hydration: HydrationProfile | null;
+  dayGoals: Record<string, { base: number; extra: number; training: boolean }>; // meta guardada por día (como daily_goals)
 };
 
 const fresh = (): DB => ({
   session: false,
   profile: {
     id: "mock-user",
-    email: "prueba@h2o.test",
+    email: "prueba@hidra.test",
     displayName: null,
     timezone: "America/Santiago",
     goalMl: 2000,
@@ -36,6 +38,8 @@ const fresh = (): DB => ({
     reduceMotion: false,
     selectedBottleId: null,
     localImportDoneAt: null,
+    trainingExtraMl: 0,
+    goalSource: "manual",
   },
   pet: null,
   bottles: [],
@@ -44,6 +48,8 @@ const fresh = (): DB => ({
   equipment: {},
   rewards: [],
   freezes: [],
+  hydration: null,
+  dayGoals: {},
 });
 
 /** Reloj controlable desde las pruebas: window.__H2O_NOW = "2026-11-25T12:00:00Z" */
@@ -60,7 +66,11 @@ export class MockBackend implements Backend {
   private read(): DB {
     try {
       const raw = localStorage.getItem(KEY);
-      return raw ? { ...fresh(), ...JSON.parse(raw) } : fresh();
+      if (!raw) return fresh();
+      const f = fresh();
+      const db = { ...f, ...JSON.parse(raw) };
+      db.profile = { ...f.profile, ...db.profile }; // datos guardados por una versión anterior
+      return db;
     } catch {
       return fresh();
     }
@@ -76,6 +86,15 @@ export class MockBackend implements Backend {
   }
   private today(db: DB) {
     return todayIn(db.profile.timezone, now());
+  }
+  /** Igual que _ensure_day_goal: la meta de un día se guarda una vez */
+  private ensureDay(db: DB, day: string) {
+    db.dayGoals[day] ??= { base: db.profile.goalMl, extra: db.profile.trainingExtraMl, training: false };
+    return db.dayGoals[day];
+  }
+  private goalFor(db: DB, day: string) {
+    const g = db.dayGoals[day];
+    return g ? g.base + (g.training ? g.extra : 0) : db.profile.goalMl;
   }
 
   async currentUser() {
@@ -127,6 +146,10 @@ export class MockBackend implements Backend {
       bestStreak: s.best,
       activeToday: s.activeToday,
       freezes: [...db.freezes],
+      todayGoalMl: this.goalFor(db, today),
+      baseGoalMl: db.profile.goalMl,
+      trainingExtraMl: db.profile.trainingExtraMl,
+      trainingToday: !!db.dayGoals[today]?.training,
     };
   }
 
@@ -145,6 +168,8 @@ export class MockBackend implements Backend {
       rewardKeys: db.rewards.map((r) => r.key),
       summary: this.summaryOf(db),
       shop: CATALOG.map((i) => ({ id: i.id, price: i.price, purchasable: i.purchasable })),
+      hydration: db.hydration,
+      dayGoals: Object.fromEntries(Object.keys(db.dayGoals).map((d) => [d, this.goalFor(db, d)])),
     };
   }
   async summary() {
@@ -154,7 +179,27 @@ export class MockBackend implements Backend {
     await delay();
     this.mutate((db) => {
       if (patch.goalMl !== undefined && (patch.goalMl < 1000 || patch.goalMl > 6000)) throw new Error("Meta fuera de rango");
+      if (patch.trainingExtraMl !== undefined && (patch.trainingExtraMl < 0 || patch.trainingExtraMl > 2000)) throw new Error("Ajuste fuera de rango");
       Object.assign(db.profile, patch);
+      // Como el trigger profiles_goal_changed: afecta HOY, nunca días anteriores
+      if (patch.goalMl !== undefined || patch.trainingExtraMl !== undefined) {
+        const d = this.ensureDay(db, this.today(db));
+        d.base = db.profile.goalMl;
+        d.extra = db.profile.trainingExtraMl;
+      }
+    });
+  }
+  async setTrainingToday(training: boolean) {
+    await delay();
+    this.mutate((db) => {
+      this.ensureDay(db, this.today(db)).training = training;
+    });
+  }
+  async saveHydration(h: Omit<HydrationProfile, "updatedAt"> | null) {
+    await delay();
+    this.mutate((db) => {
+      if (h && (h.weightKg < 30 || h.weightKg > 250)) throw new Error("Revisa los valores: hay un dato fuera de rango.");
+      db.hydration = h ? { ...h, updatedAt: now().toISOString() } : null;
     });
   }
   async savePet(pet: Pet) {
@@ -196,6 +241,7 @@ export class MockBackend implements Backend {
     return this.mutate((db) => {
       const existing = db.entries.find((x) => x.clientKey === e.clientKey);
       if (existing) return existing;
+      this.ensureDay(db, this.today(db));
       const bottle = e.bottleId ? db.bottles.find((b) => b.id === e.bottleId && !b.deletedAt) : undefined;
       if (e.bottleId && !bottle) throw new Error("La botella no pertenece a este usuario");
       if (bottle && e.source === "nfc" && !bottle.tagLinkedAt) bottle.tagLinkedAt = now().toISOString();
@@ -224,10 +270,12 @@ export class MockBackend implements Backend {
   async claimRewards() {
     await delay();
     return this.mutate((db) => {
+      this.ensureDay(db, this.today(db));
       const s = this.summaryOf(db);
       const { grants, freeze } = pendingRewards({
         today: s.today,
         goalMl: db.profile.goalMl,
+        dayGoals: Object.fromEntries(Object.keys(db.dayGoals).map((d) => [d, this.goalFor(db, d)])),
         onboarded: db.profile.onboarded,
         entries: db.entries.map((e) => ({ localDate: e.date, amountMl: e.amountMl, source: e.source, imported: e.imported })),
         freezes: db.freezes,

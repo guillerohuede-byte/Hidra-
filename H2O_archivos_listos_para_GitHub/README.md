@@ -1,4 +1,4 @@
-# H2O — hidratación con tu compañero
+# Hidra — hidratación con tu compañero
 
 App web (PWA) del Grupo 6 · TEI301 UAI. Registras el agua que tomas con tu botella de siempre;
 un sticker NFC abre la app lista para confirmar con un toque. Una mascota celebra tus logros,
@@ -15,6 +15,7 @@ npm run lint && npm run build
 npm run test:e2e     # 30 pruebas de punta a punta (requiere `npm run dev:prueba` corriendo y Playwright para Python)
 ```
 
+Las pruebas de metas por día y del perfil de hidratación están en `supabase/tests/pruebas_meta.sql`.
 Las pruebas de base de datos (RLS, premios, compras, rachas, NFC) están en `supabase/tests/pruebas_bd.sql`:
 crean dos usuarios de prueba, verifican 45 reglas (incluidos intentos de trampa) y los borran al final.
 
@@ -40,7 +41,8 @@ Si las dos primeras faltan, la app usa los valores del proyecto que están en `l
      - `http://localhost:3000/**`
 2. **Authentication → Sign In / Providers → Email**: "Confirm email" activado.
 3. **Correos (opcional pero recomendado)**: el correo integrado de Supabase permite muy pocos envíos por hora;
-   para la demo con varias personas configura un SMTP propio (Authentication → Emails → SMTP).
+   para la demo con varias personas configura un SMTP propio (Authentication → Emails → SMTP), con *Sender name* `Hidra`.
+   Las plantillas en español con la marca Hidra están en `supabase/templates/` (ver su LEEME).
 4. Los enlaces de confirmación crean la sesión solo si se abren **en el mismo navegador** donde se creó la cuenta
    (flujo PKCE). En iPhone la app instalada y Safari no comparten sesión: si el enlace se abre en el otro, el correo
    igual queda confirmado y la app pide iniciar sesión (conservando el destino, p. ej. el sticker).
@@ -58,8 +60,19 @@ Migraciones en `supabase/migrations/` (ya aplicadas al proyecto):
 4. `permisos_explicitos` — permisos mínimos por tabla; sin `TRUNCATE` (que se salta RLS)
 5. `cerrar_funciones_trigger` — funciones internas no expuestas en la API
 6. `cierre_abusos` — la racha ignora registros importados; importación con límites; registro "con sticker" exige botella
+7. `meta_personalizada` — `hydration_profiles`, `daily_goals` (meta guardada por día), ajuste de entrenamiento, `set_training_today()`
 
 Los tipos TypeScript están en `lib/supabase/database.types.ts`.
+
+## Meta personalizada y días de entrenamiento
+
+- Cuestionario de 5 preguntas: edad, indicación profesional sobre líquidos, peso, ejercicio y calor.
+- El cálculo es orientativo. Método, fuentes y límites en **[docs/meta-de-hidratacion.md](docs/meta-de-hidratacion.md)**; código en `lib/hydration/calc.ts`.
+- Menores de 18 años o personas con una indicación profesional sobre líquidos usan una meta manual; no se aplica la fórmula.
+- **Meta base** (todos los días) + **ajuste opcional para días de entrenamiento**. El botón «Hoy entreno» suma el ajuste **solo a hoy**.
+- **Cada día guarda su meta** (`daily_goals`): cambiar la meta o marcar entrenamiento nunca altera días anteriores ni da premios retroactivos. La meta se premia una vez por día.
+- Las respuestas se guardan en `hydration_profiles`, sin datos médicos, y se pueden borrar desde Perfil → Hidratación.
+- A los usuarios existentes no se les cambia la meta: ven una invitación opcional.
 
 ## Reglas del juego (resumen)
 
@@ -86,6 +99,16 @@ Por eso los datos viven en la cuenta y no en el navegador.
 
 12 especies (`lib/pets/species.ts`) sobre un esqueleto común (`lib/pets/skeleton.ts`), así toda la ropa
 calza en todas. Para agregar una especie: entrada en `species.ts` + rasgos en `components/pet/SpeciesParts.tsx`.
-Ilustraciones y marcas originales de H2O (ninguna marca real).
+Ilustraciones y marcas originales de Hidra (ninguna marca real).
 
-H2O es una herramienta de hábitos; no reemplaza recomendaciones médicas.
+## Nombre técnico vs. marca
+
+La app se llama **Hidra**. Algunos nombres internos conservan `h2o` a propósito, porque cambiarlos rompería compatibilidad o borraría datos guardados en los navegadores:
+- la carpeta `H2O_archivos_listos_para_GitHub`;
+- las claves `h2o:*` del navegador;
+- `useH2O` y `NEXT_PUBLIC_H2O_MOCK`;
+- el nombre del paquete.
+
+El dominio `hidra-wgjk.vercel.app`, los códigos de botella y las URL `/nfc/CODIGO` de los stickers no cambian.
+
+Hidra es una herramienta de hábitos; no reemplaza recomendaciones médicas.

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import NfcRegister from "@/components/NfcRegister";
 
 // Ruta que abre el sticker: https://<dominio>/nfc/<código de la botella>
-export const metadata: Metadata = { title: "H2O — Registrar con NFC" };
+export const metadata: Metadata = { title: "Registrar con NFC" };
 
 export default async function NfcPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
