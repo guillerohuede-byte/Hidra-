@@ -9,6 +9,12 @@ const PUBLIC = [/^\/login/, /^\/registro/, /^\/recuperar/, /^\/auth\//, /^\/sin-
 /** Refresca la sesión en cada visita y manda al login si no hay sesión (recordando a dónde ibas). */
 export async function updateSession(request: NextRequest) {
   if (MOCK_MODE) return NextResponse.next({ request });
+  // Si Supabase devolvió el código de confirmación a la portada (falta la URL en la lista permitida), recuperarlo
+  if (request.nextUrl.pathname === "/" && (request.nextUrl.searchParams.has("code") || request.nextUrl.searchParams.has("token_hash"))) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/confirm";
+    return NextResponse.redirect(url);
+  }
   let response = NextResponse.next({ request });
   const supabase = createServerClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     cookies: {
@@ -24,10 +30,11 @@ export async function updateSession(request: NextRequest) {
   // getClaims valida el token (no confiar solo en la cookie)
   let userId: string | null = null;
   try {
-    const { data } = await supabase.auth.getClaims();
+    const { data, error } = await supabase.auth.getClaims();
+    if (error && !/session|missing|expired|invalid/i.test(error.message)) return response; // falla de red: decide la app
     userId = (data?.claims?.sub as string | undefined) ?? null;
   } catch {
-    userId = null; // sin red hacia Supabase: el cliente reintentará
+    return response; // sin red hacia Supabase: la app decide con la sesión guardada (evita rebotes al login)
   }
 
   const path = request.nextUrl.pathname;

@@ -162,7 +162,7 @@ export function pendingRewards(s: GameState): { grants: Grant[]; freeze?: string
   // Escudo de Gota automático
   const yesterday = addDays(s.today, -1);
   const before = addDays(s.today, -2);
-  const has = (d: string) => s.entries.some((x) => x.localDate === d) || freezes.has(d);
+  const has = (d: string) => live(s.entries).some((x) => x.localDate === d) || freezes.has(d);
   if (shields > 0 && !has(yesterday) && has(before)) {
     freeze = yesterday;
     freezes.add(yesterday);
@@ -189,7 +189,8 @@ export function pendingRewards(s: GameState): { grants: Grant[]; freeze?: string
   const todas = MISSIONS.find((m) => m.id === "todas")!;
   if (missionProgress(todas, { ...ctx, keys }) >= 3) give({ key: todas.key(s.today), kind: "mision", label: "¡Todas las misiones de la semana!", gotitas: todas.gotitas, xp: todas.xp });
 
-  const active = [...s.entries.map((x) => x.localDate), ...freezes];
+  // La racha solo cuenta días registrados en la app (los importados son historial)
+  const active = [...live(s.entries).map((x) => x.localDate), ...freezes];
   const { current } = streakStats(active, s.today);
   for (const ms of STREAK_MILESTONES) {
     if (current >= ms.days) give({ key: `streak:${ms.days}`, kind: "racha", label: ms.label, gotitas: ms.gotitas, xp: ms.xp, shields: ms.shields, item: ms.item });

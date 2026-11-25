@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { CATALOG, ITEMS_BY_ID, MAX_SHIELDS } from "@/lib/game/catalog";
-import { levelForXp, pendingRewards, streakStats, todayIn, xpForLevel } from "@/lib/game/rules";
+import { addDays, levelForXp, pendingRewards, streakStats, todayIn, xpForLevel } from "@/lib/game/rules";
 import type { Bottle, IntakeEntry } from "@/lib/types";
 import type { Backend, BottleInput, ImportPayload, Pet, Profile, Reward, Snapshot } from "./types";
 
@@ -114,7 +114,7 @@ export class MockBackend implements Backend {
     const today = this.today(db);
     const xp = db.rewards.reduce((a, r) => a + r.xp, 0);
     const level = levelForXp(xp);
-    const s = streakStats([...db.entries.map((e) => e.date), ...db.freezes], today);
+    const s = streakStats([...db.entries.filter((e) => !e.imported).map((e) => e.date), ...db.freezes], today);
     return {
       today,
       xp,
@@ -290,6 +290,9 @@ export class MockBackend implements Backend {
       for (const e of payload.entries) {
         const clientKey = `local:${e.id}`;
         if (db.entries.some((x) => x.clientKey === clientKey)) { es++; continue; }
+        // Igual que el servidor: solo fechas entre hoy y 400 días atrás
+        const today = this.today(db);
+        if (e.date > today || e.date < addDays(today, -400)) { es++; continue; }
         db.entries.push({ ...e, clientKey, imported: true, bottleId: db.bottles.some((b) => b.id === e.bottleId) ? e.bottleId : null });
         ei++;
       }

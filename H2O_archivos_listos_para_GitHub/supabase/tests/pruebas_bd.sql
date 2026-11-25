@@ -144,6 +144,28 @@ select pg_temp.chk('importar dos veces no duplica',
 select pg_temp.chk('importados no dan premios',
   not exists (select 1 from public.reward_events where key like '%2026-11-20%' or key like '%2026-11-21%'));
 
+-- 11b. Ataques a la importación (revisión de producción)
+select public.import_local(jsonb_build_object('entries',
+  (select jsonb_agg(jsonb_build_object('id', 'fake' || g, 'amountMl', 250, 'date', (current_date - g)::text)) from generate_series(1, 100) g)));
+select pg_temp.chk('días importados inventados no crean racha ni premios de racha',
+  (public.game_summary() ->> 'current_streak')::int <= 1  -- solo hoy (registrado en la app)
+  and (select count(*) from public.claim_rewards() where kind = 'racha') = 0);
+select pg_temp.chk('importación tolera datos malformados y salta fechas futuras o muy antiguas',
+  (public.import_local('{"bottles":[{"id":"BMAL2345","capacityMl":"abc","createdAt":"basura"}, 5],
+     "entries":[{"id":"m1","amountMl":"abc","date":"2026-11-20"},{"id":"m2","amountMl":100,"date":"2026-13-45"},
+                {"id":"m3","amountMl":100,"date":"2099-01-01"},{"id":"m4","amountMl":100,"date":"1990-01-01"},
+                {"id":"m5","amountMl":100,"date":"2026-11-22","timestamp":"basura"}, "x"]}'::jsonb) ->> 'entries_imported')::int = 1);
+do $$ begin
+  perform public.import_local(jsonb_build_object('entries', (select jsonb_agg(jsonb_build_object('id', 'x' || g)) from generate_series(1, 5001) g)));
+  perform pg_temp.chk('importación con demasiados registros rechazada', false);
+exception when others then perform pg_temp.chk('importación con demasiados registros rechazada', sqlerrm = 'Demasiados registros', sqlerrm);
+end $$;
+do $$ begin
+  insert into public.intake_entries (client_key, amount_ml, source) values ('nfc-sin-botella', 250, 'nfc');
+  perform pg_temp.chk('registro "con sticker" exige botella', false);
+exception when check_violation then perform pg_temp.chk('registro "con sticker" exige botella', true);
+end $$;
+
 -- ── Como BETO ─────────────────────────────────────────────────
 select pg_temp.como('00000000-0000-4000-8000-0000000000b2');
 
@@ -189,6 +211,8 @@ insert into public.intake_entries (user_id, client_key, amount_ml, logged_at, lo
 select '00000000-0000-4000-8000-0000000000b2', 'r' || g, 200, now() - (g || ' days')::interval,
        public.user_today('00000000-0000-4000-8000-0000000000b2') - g, 'manual', true
 from generate_series(1, 8) g;
+-- (insertados como importados para fijar fechas pasadas; se marcan como hechos en la app para probar la racha)
+update public.intake_entries set imported = false where user_id = '00000000-0000-4000-8000-0000000000b2';
 
 -- 14. Racha: 8 días seguidos hasta ayer, viva hoy
 select pg_temp.chk('racha de 8 días sigue viva hoy',
@@ -223,6 +247,11 @@ do $$ begin
   perform count(*) from public.bottles;
   perform pg_temp.chk('anónimo sin acceso a tablas', false);
 exception when insufficient_privilege then perform pg_temp.chk('anónimo sin acceso a tablas', true);
+end $$;
+do $$ begin
+  perform public.claim_rewards();
+  perform pg_temp.chk('anónimo no puede llamar funciones del juego', false);
+exception when insufficient_privilege then perform pg_temp.chk('anónimo no puede llamar funciones del juego', true);
 end $$;
 
 reset role;

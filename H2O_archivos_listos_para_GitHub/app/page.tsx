@@ -55,7 +55,7 @@ export default function Inicio() {
       <section className="relative mb-4 overflow-hidden rounded-3xl bg-gradient-to-b from-h2o-100 via-h2o-50 to-white px-4 pb-3 pt-4 ring-1 ring-h2o-100">
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-16 bg-[radial-gradient(ellipse_at_bottom,rgba(56,189,248,0.25),transparent_70%)]" />
         <PetStage pct={h.pct} count={h.today.length} />
-        <Link href="/companero" className="relative mx-auto mt-1 block w-fit rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-h2o-700 ring-1 ring-h2o-100">
+        <Link href="/companero" className="relative mx-auto mt-1 block w-fit rounded-full bg-white/80 px-3.5 py-2 text-xs font-semibold text-h2o-700 ring-1 ring-h2o-100">
           {store.data?.pet?.name ?? "Tu compañero"} · Nivel {g.level} <ChevronRight size={12} className="inline" />
         </Link>
       </section>
@@ -136,7 +136,7 @@ export default function Inicio() {
       <section className="mt-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-h2o-100" data-testid="missions-preview">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="flex items-center gap-1.5 font-bold"><Sparkles size={18} className="text-amber-500" /> Misiones de hoy</h2>
-          <Link href="/misiones" className="flex items-center text-sm font-semibold text-h2o-600">
+          <Link href="/misiones" className="-my-2 flex items-center py-2 text-sm font-semibold text-h2o-600">
             Ver todas <ChevronRight size={16} />
           </Link>
         </div>
@@ -204,7 +204,7 @@ export default function Inicio() {
         <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-h2o-100">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="font-bold">Hoy</h2>
-            <Link href="/historial" className="flex items-center text-sm font-semibold text-h2o-600">
+            <Link href="/historial" className="-my-2 flex items-center py-2 text-sm font-semibold text-h2o-600">
               Ver historial <ChevronRight size={16} />
             </Link>
           </div>

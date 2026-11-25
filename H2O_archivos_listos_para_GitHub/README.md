@@ -1,6 +1,6 @@
 # H2O — hidratación con tu compañero
 
-App web (PWA) de Grupo 9 · TEI301 UAI. Registras el agua que tomas con tu botella de siempre;
+App web (PWA) del Grupo 6 · TEI301 UAI. Registras el agua que tomas con tu botella de siempre;
 un sticker NFC abre la app lista para confirmar con un toque. Una mascota celebra tus logros,
 ganas Gotitas, mantienes rachas y vistes a tu compañero con ropa de marcas inventadas.
 
@@ -16,7 +16,7 @@ npm run test:e2e     # 30 pruebas de punta a punta (requiere `npm run dev:prueba
 ```
 
 Las pruebas de base de datos (RLS, premios, compras, rachas, NFC) están en `supabase/tests/pruebas_bd.sql`:
-crean dos usuarios de prueba, verifican 40 reglas y los borran al final.
+crean dos usuarios de prueba, verifican 45 reglas (incluidos intentos de trampa) y los borran al final.
 
 ## Variables de entorno
 
@@ -24,7 +24,7 @@ crean dos usuarios de prueba, verifican 40 reglas y los borran al final.
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Vercel (todas) | `https://kvchfntwgcprgndpomou.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Vercel (todas) | clave *publishable* del proyecto (Supabase → Settings → API Keys) |
-| `NEXT_PUBLIC_H2O_MOCK` | solo local | `1` activa el modo de prueba. **Nunca** se activa en producción (se ignora si `VERCEL_ENV=production`). |
+| `NEXT_PUBLIC_H2O_MOCK` | solo local | `1` activa el modo de prueba. En Vercel (producción y vistas previas) es imposible: el código de prueba ni siquiera se incluye en el build. |
 
 Si las dos primeras faltan, la app usa los valores del proyecto que están en `lib/supabase/config.ts`
 (la clave *publishable* es pública por diseño; los datos los protege RLS).
@@ -34,16 +34,19 @@ Si las dos primeras faltan, la app usa los valores del proyecto que están en `l
 
 1. **Authentication → URL Configuration**
    - Site URL: `https://hidra-wgjk.vercel.app`
-   - Redirect URLs:
-     - `https://hidra-wgjk.vercel.app/auth/confirm`
-     - `https://*-guillerohuede-byte.vercel.app/auth/confirm` (previsualizaciones de Vercel; ajusta al dominio de tu equipo)
-     - `http://localhost:3000/auth/confirm`
+   - Redirect URLs (con `/**`, porque el enlace lleva `?next=` para volver al sticker):
+     - `https://hidra-wgjk.vercel.app/**`
+     - `https://hidra-wgjk-git-*-zenvix4.vercel.app/**` (vistas previas de Vercel de cada rama, equipo `zenvix4`)
+     - `http://localhost:3000/**`
 2. **Authentication → Sign In / Providers → Email**: "Confirm email" activado.
 3. **Correos (opcional pero recomendado)**: el correo integrado de Supabase permite muy pocos envíos por hora;
    para la demo con varias personas configura un SMTP propio (Authentication → Emails → SMTP).
-4. Los enlaces de confirmación deben abrirse **en el mismo celular/navegador** donde se creó la cuenta
-   (flujo PKCE). Si se quiere permitir abrirlos en otro equipo, cambiar las plantillas de correo a
-   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/` (la ruta ya lo soporta).
+4. Los enlaces de confirmación crean la sesión solo si se abren **en el mismo navegador** donde se creó la cuenta
+   (flujo PKCE). En iPhone la app instalada y Safari no comparten sesión: si el enlace se abre en el otro, el correo
+   igual queda confirmado y la app pide iniciar sesión (conservando el destino, p. ej. el sticker).
+5. **Vistas previas de Vercel**: están protegidas con *Vercel Authentication*. Para probarlas en el iPhone hay que
+   iniciar sesión en vercel.com en Safari con una cuenta del equipo, o desactivar la protección de vistas previas
+   (Vercel → Settings → Deployment Protection).
 
 ## Base de datos
 
@@ -54,6 +57,7 @@ Migraciones en `supabase/migrations/` (ya aplicadas al proyecto):
 3. `reglas_del_juego` — `claim_rewards`, `game_summary`, `buy_item`, `import_local`, rachas y niveles
 4. `permisos_explicitos` — permisos mínimos por tabla; sin `TRUNCATE` (que se salta RLS)
 5. `cerrar_funciones_trigger` — funciones internas no expuestas en la API
+6. `cierre_abusos` — la racha ignora registros importados; importación con límites; registro "con sticker" exige botella
 
 Los tipos TypeScript están en `lib/supabase/database.types.ts`.
 
@@ -62,8 +66,8 @@ Los tipos TypeScript están en `lib/supabase/database.types.ts`.
 - Bienvenida 50 Gotitas. Recompensa diaria 5. Cada registro 2 Gotitas + 10 XP, **máximo 6 al día**.
 - Meta diaria cumplida: 20 Gotitas + 50 XP, **una vez por día** (tomar de más no da más).
 - Borrar y volver a registrar no repite premios (libro de premios con clave única).
-- Los registros importados de la versión sin cuenta no dan premios.
-- Racha = días con al menos un registro (la meta es un logro aparte). Hitos 3/7/14/30/60/100 días.
+- Los registros importados de la versión sin cuenta no dan premios **ni cuentan para la racha** (solo historial).
+- Racha = días con al menos un registro hecho en la app (la meta es un logro aparte). Hitos 3/7/14/30/60/100 días.
 - Escudo de Gota (máx. 3): protege automáticamente un día sin registro.
 - Nivel L requiere 50·L·(L−1) XP. Nivel 5: Bufanda Marejada; nivel 10: Capa Tsunami.
 - Todo lo decide el servidor; el navegador no puede escribirse Gotitas ni inventario.

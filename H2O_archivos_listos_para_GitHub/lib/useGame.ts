@@ -35,10 +35,12 @@ export function useGame() {
     const levelPct = Math.min(100, Math.max(0, (((sum?.xp ?? 0) - (sum?.levelXpStart ?? 0)) / levelSpan) * 100));
 
     // Calendario de racha: días con registro (no importados no cuentan distinto: todos cuentan para el hábito)
-    const activeDays = new Set(entries.map((e) => e.localDate));
+    // La racha solo cuenta días registrados en la app; lo importado se muestra aparte
+    const activeDays = new Set(entries.filter((e) => !e.imported).map((e) => e.localDate));
+    const importedDays = new Set(entries.filter((e) => e.imported).map((e) => e.localDate));
     const goalDays = new Set<string>();
     const byDay = new Map<string, number>();
-    for (const e of entries) byDay.set(e.localDate, (byDay.get(e.localDate) ?? 0) + e.amountMl);
+    for (const e of entries.filter((x) => !x.imported)) byDay.set(e.localDate, (byDay.get(e.localDate) ?? 0) + e.amountMl);
     for (const [day, ml] of byDay) if (ml >= goalMl) goalDays.add(day);
     const freezes = new Set(sum?.freezes ?? []);
 
@@ -61,6 +63,7 @@ export function useGame() {
       bestStreak: sum?.bestStreak ?? 0,
       activeToday: sum?.activeToday ?? false,
       activeDays,
+      importedDays,
       goalDays,
       freezes,
       owned,

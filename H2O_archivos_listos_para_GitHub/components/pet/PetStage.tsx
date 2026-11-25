@@ -49,7 +49,7 @@ export default function PetStage({ pct, count, size = 190, compact = false }: { 
   return (
     <div className={`relative flex flex-col items-center ${compact ? "" : "pt-2"}`}>
       {!compact && (
-        <div className="pop-in relative mb-1 max-w-[17rem] rounded-2xl bg-white px-4 py-2.5 text-center text-sm font-medium text-navy shadow-sm ring-1 ring-h2o-100" data-testid="pet-line" key={line}>
+        <div className="pop-in relative z-10 mb-3 max-w-[17rem] rounded-2xl bg-white px-4 py-2.5 text-center text-sm font-medium text-navy shadow-sm ring-1 ring-h2o-100" data-testid="pet-line" key={line}>
           {line}
           <span className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 bg-white ring-1 ring-h2o-100 [clip-path:polygon(100%_0,100%_100%,0_100%)]" />
         </div>

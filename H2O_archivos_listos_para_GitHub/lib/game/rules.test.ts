@@ -101,7 +101,7 @@ describe("premios", () => {
   });
   it("hito de 7 días entrega un Escudo, y el escudo cubre un día perdido", () => {
     const T = "2026-11-25";
-    const s = base({ entries: Array.from({ length: 7 }, (_, i) => ({ localDate: addDays(T, -1 - i), amountMl: 100, source: "manual" as const, imported: true })) });
+    const s = base({ entries: Array.from({ length: 7 }, (_, i) => ({ localDate: addDays(T, -1 - i), amountMl: 100, source: "manual" as const })) });
     const g = apply(s);
     expect(g.find((x) => x.key === "streak:7")?.shields).toBe(1);
     expect(s.shields).toBe(1);
@@ -111,6 +111,13 @@ describe("premios", () => {
     expect(g2.some((x) => x.kind === "escudo")).toBe(true);
     expect(s.shields).toBe(0);
     expect(streakStats([...s.entries.map((e) => e.localDate), ...s.freezes], s.today).current).toBe(8);
+  });
+  it("días importados (aunque sean 100) no crean racha ni premios de racha", () => {
+    const T = "2026-11-25";
+    const s = base({ entries: Array.from({ length: 100 }, (_, i) => ({ localDate: addDays(T, -1 - i), amountMl: 250, source: "manual" as const, imported: true })) });
+    const g = apply(s);
+    expect(g.some((x) => x.kind === "racha")).toBe(false);
+    expect(g.some((x) => x.item)).toBe(false);
   });
   it("misión semanal 'todas' solo tras las otras tres", () => {
     const T = "2026-11-29"; // domingo

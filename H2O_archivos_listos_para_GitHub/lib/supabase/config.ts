@@ -5,5 +5,5 @@ export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://kvc
 export const SUPABASE_PUBLISHABLE_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_4853eP3nd1auNWPPkQyNXg_uAt40Ehx";
 
-/** Modo de prueba local (sin Supabase). Nunca activo en producción de Vercel. */
-export const MOCK_MODE = process.env.NEXT_PUBLIC_H2O_MOCK === "1" && process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
+/** Modo de prueba local (sin Supabase). Imposible en Vercel: ver next.config.ts. */
+export const MOCK_MODE = process.env.NEXT_PUBLIC_H2O_MOCK === "1" && process.env.H2O_MOCK_ALLOWED === "1";

@@ -156,7 +156,8 @@ function StreakTab() {
           {cells.map((d, i) => {
             if (!d) return <span key={i} />;
             const goal = g.goalDays.has(d), active = g.activeDays.has(d), freeze = g.freezes.has(d), today = d === g.today, future = d > g.today;
-            const cls = goal ? "bg-emerald-500 text-white" : active ? "bg-h2o-500 text-white" : freeze ? "bg-sky-100 text-sky-700" : future ? "text-slate-300" : "bg-slate-50 text-slate-500";
+            const imported = !active && g.importedDays.has(d);
+            const cls = goal ? "bg-emerald-500 text-white" : active ? "bg-h2o-500 text-white" : freeze ? "bg-sky-100 text-sky-700" : imported ? "bg-h2o-100 text-h2o-700" : future ? "text-slate-300" : "bg-slate-50 text-slate-500";
             return (
               <span key={d} className={`relative flex aspect-square items-center justify-center rounded-xl text-xs font-bold ${cls} ${today ? "ring-2 ring-navy ring-offset-1" : ""}`}
                 aria-label={`${d}${goal ? ", meta cumplida" : active ? ", con registro" : freeze ? ", protegido con escudo" : ""}`}>
@@ -169,6 +170,7 @@ function StreakTab() {
           <span className="flex items-center gap-1"><i className="h-3 w-3 rounded bg-h2o-500" /> Con registro</span>
           <span className="flex items-center gap-1"><i className="h-3 w-3 rounded bg-emerald-500" /> Meta cumplida</span>
           <span className="flex items-center gap-1"><Shield size={12} className="text-sky-600" /> Escudo</span>
+          {g.importedDays.size > 0 && <span className="flex items-center gap-1"><i className="h-3 w-3 rounded bg-h2o-100" /> Importado (no cuenta para la racha)</span>}
         </div>
       </section>
 

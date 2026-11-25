@@ -18,6 +18,7 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(params.get("error"));
+  const info = params.get("info");
   const fromSticker = next.startsWith("/nfc/");
 
   // Si ya hay sesión, seguir directo
@@ -48,6 +49,9 @@ function LoginForm() {
           <Nfc size={18} className="mt-0.5 shrink-0" /> Escaneaste un sticker. Inicia sesión y te llevamos de vuelta para confirmar el registro.
         </p>
       )}
+      {info && !error && (
+        <p className="mb-4 rounded-2xl bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-800" role="status">{info}</p>
+      )}
       <form onSubmit={submit} className="space-y-4" noValidate>
         <Field id="email" label="Correo" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@correo.cl" />
         <Field id="password" label="Contraseña" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -55,10 +59,10 @@ function LoginForm() {
         <SubmitButton busy={busy}>Iniciar sesión</SubmitButton>
       </form>
       <div className="mt-4 flex flex-col items-center gap-2 text-sm">
-        <Link href={`/recuperar${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`} className="font-semibold text-h2o-700">¿Olvidaste tu contraseña?</Link>
+        <Link href={`/recuperar${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`} className="inline-block py-2 font-semibold text-h2o-700">¿Olvidaste tu contraseña?</Link>
         <p className="text-muted">
           ¿No tienes cuenta?{" "}
-          <Link href={`/registro${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`} className="font-bold text-h2o-700">Créala gratis</Link>
+          <Link href={`/registro${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`} className="inline-block py-2 font-bold text-h2o-700">Créala gratis</Link>
         </p>
       </div>
     </AuthLayout>

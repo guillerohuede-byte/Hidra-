@@ -25,8 +25,18 @@ export async function GET(request: NextRequest) {
   }
 
   if (error) {
-    const msg = "El enlace expiró o ya se usó. Pide uno nuevo.";
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(msg)}`, url.origin));
+    const recovery = type === "recovery" || next === "/actualizar-clave";
+    // En confirmación de cuenta, Supabase ya validó el correo antes de llegar aquí; si falla crear la sesión
+    // (enlace abierto en otro navegador, p. ej. Safari vs. app instalada), basta con iniciar sesión.
+    const msg = recovery
+      ? "El enlace expiró o se abrió en otro navegador. Pide uno nuevo desde este mismo navegador."
+      : "Tu correo quedó confirmado. Inicia sesión con tu contraseña.";
+    const dest = new URL(recovery ? "/recuperar" : "/login", url.origin);
+    if (!recovery) {
+      dest.searchParams.set("info", msg);
+      if (next !== "/") dest.searchParams.set("next", next);
+    } else dest.searchParams.set("error", msg);
+    return NextResponse.redirect(dest);
   }
   return NextResponse.redirect(new URL(next, url.origin));
 }

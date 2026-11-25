@@ -68,7 +68,7 @@ function SignupForm() {
         <SubmitButton busy={busy}>Crear cuenta</SubmitButton>
       </form>
       <p className="mt-4 text-center text-sm text-muted">
-        ¿Ya tienes cuenta? <Link href={`/login${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`} className="font-bold text-h2o-700">Inicia sesión</Link>
+        ¿Ya tienes cuenta? <Link href={`/login${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`} className="inline-block py-2 font-bold text-h2o-700">Inicia sesión</Link>
       </p>
       <p className="mt-3 text-center text-[11px] leading-relaxed text-muted">
         H2O es una herramienta de hábitos; no reemplaza recomendaciones médicas. Pronto: entrar con Google o Apple.

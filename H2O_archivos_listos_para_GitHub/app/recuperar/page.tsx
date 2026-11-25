@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { MailCheck } from "lucide-react";
 import AuthLayout, { Field, FormError, SubmitButton } from "@/components/AuthLayout";
@@ -11,6 +11,11 @@ export default function RecuperarPage() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Mensaje que llega desde un enlace de recuperación vencido
+  useEffect(() => {
+    const e = new URLSearchParams(window.location.search).get("error");
+    if (e) setError(e);
+  }, []);
   const [sent, setSent] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -43,7 +48,7 @@ export default function RecuperarPage() {
           <SubmitButton busy={busy}>Enviar enlace</SubmitButton>
         </form>
       )}
-      <p className="mt-4 text-center text-sm"><Link href="/login" className="font-bold text-h2o-700">Volver a iniciar sesión</Link></p>
+      <p className="mt-4 text-center text-sm"><Link href="/login" className="inline-block py-2 font-bold text-h2o-700">Volver a iniciar sesión</Link></p>
     </AuthLayout>
   );
 }

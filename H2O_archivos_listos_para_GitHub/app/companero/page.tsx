@@ -71,7 +71,7 @@ export default function Companero() {
       <section className="mt-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-h2o-100">
         <div className="flex items-center justify-between">
           <h2 className="font-bold">Personalizar</h2>
-          <button onClick={() => setEditing((v) => !v)} className="flex items-center gap-1 text-sm font-semibold text-h2o-700"><Pencil size={14} /> {editing ? "Listo" : "Editar"}</button>
+          <button onClick={() => setEditing((v) => !v)} className="-my-2 flex items-center gap-1 py-2 text-sm font-semibold text-h2o-700"><Pencil size={14} /> {editing ? "Listo" : "Editar"}</button>
         </div>
         {editing ? <EditPet onSaved={(m) => { setToast(m); setEditing(false); }} /> : (
           <p className="mt-1 text-sm text-muted">{sp?.personality}</p>
@@ -82,7 +82,7 @@ export default function Companero() {
       <section className="mt-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-h2o-100">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-bold">Armario</h2>
-          <Link href="/tienda" className="flex items-center gap-1 text-sm font-semibold text-h2o-700"><ShoppingBag size={15} /> Tienda</Link>
+          <Link href="/tienda" className="-my-2 flex items-center gap-1 py-2 text-sm font-semibold text-h2o-700"><ShoppingBag size={15} /> Tienda</Link>
         </div>
         <div className="mb-4 flex flex-wrap gap-1.5">
           {EQUIP_SLOTS.map((slot) => {
