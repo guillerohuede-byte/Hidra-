@@ -1,4 +1,4 @@
-// Contrato de datos de H2O. Las pantallas solo conocen esto; debajo puede
+// Contrato de datos de Hidra. Las pantallas solo conocen esto; debajo puede
 // estar Supabase (producción) o el backend de prueba (pruebas automáticas).
 import type { Bottle, IntakeEntry } from "@/lib/types";
 
@@ -12,6 +12,21 @@ export type Profile = {
   reduceMotion: boolean;
   selectedBottleId: string | null;
   localImportDoneAt: string | null;
+  trainingExtraMl: number; // se suma a la meta solo los días de entrenamiento
+  goalSource: "manual" | "calculada";
+};
+
+/** Respuestas guardadas del cálculo de meta (sin datos médicos) */
+export type HydrationProfile = {
+  ageRange: "18-30" | "31-50" | "51-70" | "71+";
+  weightKg: number;
+  exerciseMinutes: 0 | 20 | 45 | 75 | 105;
+  intensity: "suave" | "moderada" | "intensa" | null;
+  heat: "nunca" | "a_veces" | "frecuente";
+  methodVersion: string;
+  recommendedBaseMl: number;
+  recommendedExtraMl: number;
+  updatedAt: string;
 };
 
 export type Pet = { species: string; name: string; color: string };
@@ -39,6 +54,10 @@ export type Summary = {
   bestStreak: number;
   activeToday: boolean;
   freezes: string[];
+  todayGoalMl: number; // meta de HOY (base + ajuste si hoy entrena)
+  baseGoalMl: number;
+  trainingExtraMl: number;
+  trainingToday: boolean;
 };
 
 export type ShopPrice = { id: string; price: number; purchasable: boolean };
@@ -54,6 +73,8 @@ export type Snapshot = {
   rewardKeys: string[];
   summary: Summary;
   shop: ShopPrice[];
+  hydration: HydrationProfile | null;
+  dayGoals: Record<string, number>; // meta guardada de cada día (no cambia retroactivamente)
 };
 
 export type BottleInput = { name: string; capacityMl: number; defaultAmountMl: number; color?: string };
@@ -82,7 +103,9 @@ export interface Backend {
 
   load(): Promise<Snapshot>;
   summary(): Promise<Summary>;
-  updateProfile(patch: Partial<Pick<Profile, "displayName" | "timezone" | "goalMl" | "onboarded" | "reduceMotion" | "selectedBottleId">>): Promise<void>;
+  updateProfile(patch: Partial<Pick<Profile, "displayName" | "timezone" | "goalMl" | "onboarded" | "reduceMotion" | "selectedBottleId" | "trainingExtraMl" | "goalSource">>): Promise<void>;
+  setTrainingToday(training: boolean): Promise<void>;
+  saveHydration(h: Omit<HydrationProfile, "updatedAt"> | null): Promise<void>; // null = borrar respuestas
   savePet(pet: Pet): Promise<void>;
 
   addBottle(id: string, input: BottleInput): Promise<Bottle>;

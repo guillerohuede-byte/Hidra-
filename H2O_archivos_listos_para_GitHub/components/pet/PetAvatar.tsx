@@ -4,7 +4,7 @@
 // cola/capa → cuerpo → ropa → brazos/pies → orejas → cabeza → cara → lentes → gorro.
 // Animaciones en CSS (globals.css): respirar, parpadear, tomar agua, celebrar, reaccionar.
 // Con "reducir movimiento" todo queda quieto.
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { paletteFor, evolutionFor } from "@/lib/pets/species";
 import { SK } from "@/lib/pets/skeleton";
 import { speciesParts } from "./SpeciesParts";
@@ -36,6 +36,7 @@ export default function PetAvatar({
   const parts = speciesParts(species, p);
   const tier = evolutionFor(level).tier;
   const [playing, setPlaying] = useState<PetAnim>(null);
+  const auraId = `aura-${useId().replace(/:/g, "")}`; // id único por mascota (puede haber varias en pantalla)
 
   useEffect(() => {
     if (!anim) return;
@@ -70,11 +71,11 @@ export default function PetAvatar({
       {/* Brillo de evolución (desde nivel 5) */}
       {tier >= 1 && (
         <g className="pet-aura" opacity={0.5 + tier * 0.12}>
-          <circle cx={100} cy={110} r={96} fill="url(#aura)" />
+          <circle cx={100} cy={110} r={96} fill={`url(#${auraId})`} />
         </g>
       )}
       <defs>
-        <radialGradient id="aura">
+        <radialGradient id={auraId}>
           <stop offset="55%" stopColor="#7dd3fc" stopOpacity={0} />
           <stop offset="100%" stopColor={tier >= 3 ? "#facc15" : "#7dd3fc"} stopOpacity={0.5} />
         </radialGradient>

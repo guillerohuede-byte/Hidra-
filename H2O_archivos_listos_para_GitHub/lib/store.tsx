@@ -48,6 +48,8 @@ type Ctx = {
   equip: (slot: string, itemId: string | null) => Promise<void>;
   buy: (itemId: string, requestId: string) => Promise<void>;
   importLocal: (payload: Parameters<Backend["importLocal"]>[0]) => Promise<ImportResult>;
+  setTrainingToday: (training: boolean) => Promise<void>;
+  saveHydration: (h: Parameters<Backend["saveHydration"]>[0]) => Promise<void>;
   claim: () => Promise<Reward[]>;
   signOut: () => Promise<void>;
 };
@@ -238,11 +240,12 @@ export function H2OProvider({ children }: { children: React.ReactNode }) {
       patch((s) => ({ ...s, profile: { ...s.profile, ...p } as Profile }));
       try {
         await backend.updateProfile(p);
-        if (p.goalMl !== undefined || p.onboarded || p.timezone) {
+        if (p.goalMl !== undefined || p.trainingExtraMl !== undefined || p.onboarded || p.timezone) {
           if (p.timezone) setTodayKey(todayIn(p.timezone));
           await claim();
           const summary = await backend.summary();
-          patch((s) => ({ ...s, summary }));
+          // La meta nueva vale desde hoy; los días anteriores conservan la suya
+          patch((s) => ({ ...s, summary, dayGoals: { ...s.dayGoals, [summary.today]: summary.todayGoalMl } }));
         }
       } catch (e) {
         if (prev) patch((s) => ({ ...s, profile: prev }));
@@ -373,6 +376,39 @@ export function H2OProvider({ children }: { children: React.ReactNode }) {
     [backend, refresh],
   );
 
+  /** Hoy entreno / hoy descanso: solo cambia la meta de HOY */
+  const setTrainingToday = useCallback<Ctx["setTrainingToday"]>(
+    async (training) => {
+      const prev = dataRef.current?.summary;
+      patch((d) => ({
+        ...d,
+        summary: { ...d.summary, trainingToday: training, todayGoalMl: d.summary.baseGoalMl + (training ? d.summary.trainingExtraMl : 0) },
+      }));
+      try {
+        await backend.setTrainingToday(training);
+        const summary = await backend.summary();
+        patch((d) => ({ ...d, summary, dayGoals: { ...d.dayGoals, [summary.today]: summary.todayGoalMl } }));
+        await claim();
+      } catch (e) {
+        if (prev) patch((d) => ({ ...d, summary: prev }));
+        throw new Error(friendlyError(e));
+      }
+    },
+    [backend, claim, patch],
+  );
+
+  const saveHydration = useCallback<Ctx["saveHydration"]>(
+    async (h) => {
+      try {
+        await backend.saveHydration(h);
+        patch((d) => ({ ...d, hydration: h ? { ...h, updatedAt: new Date().toISOString() } : null }));
+      } catch (e) {
+        throw new Error(friendlyError(e));
+      }
+    },
+    [backend, patch],
+  );
+
   const signOut = useCallback(async () => {
     await backend.signOut();
     setData(null);
@@ -384,10 +420,10 @@ export function H2OProvider({ children }: { children: React.ReactNode }) {
       status, error, online, data, todayKey, petEvent, celebration,
       dismissCelebration: () => setCelebration([]),
       poke, refresh, addEntry, deleteEntry, updateProfile, addBottle, updateBottle, deleteBottle, selectBottle,
-      savePet, equip, buy, importLocal, claim, signOut,
+      savePet, equip, buy, importLocal, claim, signOut, setTrainingToday, saveHydration,
     }),
     [status, error, online, data, todayKey, petEvent, celebration, poke, refresh, addEntry, deleteEntry, updateProfile,
-      addBottle, updateBottle, deleteBottle, selectBottle, savePet, equip, buy, importLocal, claim, signOut],
+      addBottle, updateBottle, deleteBottle, selectBottle, savePet, equip, buy, importLocal, claim, signOut, setTrainingToday, saveHydration],
   );
 
   return <H2OContext.Provider value={value}>{children}</H2OContext.Provider>;

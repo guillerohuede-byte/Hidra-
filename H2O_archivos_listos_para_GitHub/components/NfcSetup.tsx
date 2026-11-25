@@ -88,7 +88,7 @@ export default function NfcSetup({ bottle, onClose }: { bottle: Bottle | null; o
         </div>
 
         <p className="mt-5 text-sm text-muted">
-          Este es el enlace que se graba en el sticker. Al acercar el celular, se abrirá H2O listo para registrar{" "}
+          Este es el enlace que se graba en el sticker. Al acercar el celular, se abrirá Hidra listo para registrar{" "}
           {ml(bottle.defaultAmountMl)} en esta botella.
         </p>
 

@@ -4,8 +4,8 @@ import type { MetadataRoute } from "next";
 // Sin service worker a propósito: así nunca queda una versión vieja guardada.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "H2O — Hidratación con tu compañero",
-    short_name: "H2O",
+    name: "Hidra — Hidratación con tu compañero",
+    short_name: "Hidra",
     description: "Registra el agua que tomas con tu botella y su sticker NFC.",
     start_url: "/",
     scope: "/",

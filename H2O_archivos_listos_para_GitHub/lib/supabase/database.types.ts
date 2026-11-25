@@ -80,12 +80,56 @@ export type Database = {
         Update: { color?: string; name?: string; species?: string };
         Relationships: [];
       };
+      daily_goals: {
+        Row: { base_ml: number; created_at: string; day: string; extra_ml: number; training: boolean; user_id: string };
+        Insert: { [_ in never]: never };
+        Update: { [_ in never]: never };
+        Relationships: [];
+      };
+      hydration_profiles: {
+        Row: {
+          age_range: string;
+          exercise_intensity: string | null;
+          exercise_minutes: number;
+          heat: string;
+          method_version: string;
+          recommended_base_ml: number;
+          recommended_extra_ml: number;
+          updated_at: string;
+          user_id: string;
+          weight_kg: number;
+        };
+        Insert: {
+          age_range: string;
+          exercise_intensity?: string | null;
+          exercise_minutes: number;
+          heat: string;
+          method_version?: string;
+          recommended_base_ml: number;
+          recommended_extra_ml?: number;
+          user_id?: string;
+          weight_kg: number;
+        };
+        Update: {
+          age_range?: string;
+          exercise_intensity?: string | null;
+          exercise_minutes?: number;
+          heat?: string;
+          method_version?: string;
+          recommended_base_ml?: number;
+          recommended_extra_ml?: number;
+          weight_kg?: number;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           created_at: string;
           display_name: string | null;
           goal_ml: number;
+          goal_source: string;
           id: string;
+          training_extra_ml: number;
           local_import_done_at: string | null;
           onboarded: boolean;
           reduce_motion: boolean;
@@ -97,6 +141,8 @@ export type Database = {
         Update: {
           display_name?: string | null;
           goal_ml?: number;
+          goal_source?: string;
+          training_extra_ml?: number;
           onboarded?: boolean;
           reduce_motion?: boolean;
           selected_bottle_id?: string | null;
@@ -152,6 +198,7 @@ export type Database = {
       };
       game_summary: { Args: never; Returns: Json };
       import_local: { Args: { p_payload: Json }; Returns: Json };
+      set_training_today: { Args: { p_training: boolean }; Returns: Json };
       level_for_xp: { Args: { p_xp: number }; Returns: number };
     };
     Enums: { [_ in never]: never };

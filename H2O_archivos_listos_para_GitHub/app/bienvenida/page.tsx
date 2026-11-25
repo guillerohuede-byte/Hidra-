@@ -2,7 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calculator, Check, Hand } from "lucide-react";
+import HydrationWizard, { type WizardResult } from "@/components/HydrationWizard";
 import Logo from "@/components/Logo";
 import PetAvatar from "@/components/pet/PetAvatar";
 import { useH2O } from "@/lib/store";
@@ -12,7 +13,7 @@ import { ml } from "@/lib/format";
 import { safeNext } from "@/lib/safeNext";
 
 const GOALS = [1500, 2000, 2500, 3000];
-const STEPS = ["Tú", "Meta", "Compañero", "Nombre"];
+const STEPS = ["Tú", "Compañero", "Nombre", "Meta"];
 
 function Onboarding() {
   const s = useH2O();
@@ -24,35 +25,45 @@ function Onboarding() {
   const [species, setSpecies] = useState(s.data?.pet?.species ?? "capibara");
   const [color, setColor] = useState(s.data?.pet?.color ?? "base");
   const [petName, setPetName] = useState(s.data?.pet?.name ?? "");
+  const [goalMode, setGoalMode] = useState<"elegir" | "calcular" | "manual">("elegir");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sp = SPECIES_BY_ID[species];
 
   const canNext =
     (step === 0 && name.trim().length > 0 && name.trim().length <= 40) ||
-    (step === 1 && goal >= MIN_GOAL_ML && goal <= MAX_GOAL_ML) ||
-    step === 2 ||
-    (step === 3 && petName.trim().length > 0 && petName.trim().length <= 20);
+    step === 1 ||
+    (step === 2 && petName.trim().length > 0 && petName.trim().length <= 20) ||
+    (step === 3 && goalMode === "manual" && goal >= MIN_GOAL_ML && goal <= MAX_GOAL_ML);
 
-  const finish = async () => {
+  const finish = async (r?: WizardResult) => {
     if (busy) return;
     setBusy(true);
     setError(null);
     try {
       await s.savePet({ species, color, name: petName.trim() });
+      if (r?.hydration) await s.saveHydration(r.hydration);
       let tz = "America/Santiago";
       try {
         tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz;
       } catch {}
-      await s.updateProfile({ displayName: name.trim(), goalMl: goal, timezone: tz, onboarded: true });
+      await s.updateProfile({
+        displayName: name.trim(),
+        goalMl: r ? r.goalMl : goal,
+        trainingExtraMl: r ? r.trainingExtraMl : 0,
+        goalSource: r ? r.goalSource : "manual",
+        timezone: tz,
+        onboarded: true,
+      });
       router.replace(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo guardar");
       setBusy(false);
+      throw e;
     }
   };
 
-  const go = () => (step < 3 ? setStep(step + 1) : void finish());
+  const go = () => (step < 3 ? setStep(step + 1) : void finish().catch(() => {}));
 
   return (
     <div
@@ -78,7 +89,7 @@ function Onboarding() {
         >
           {step === 0 && (
             <section className="pop-in">
-              <h1 className="text-3xl font-extrabold tracking-tight">¡Bienvenido a H2O! 💧</h1>
+              <h1 className="text-3xl font-extrabold tracking-tight">¡Bienvenido a Hidra! 💧</h1>
               <p className="mt-2 text-muted">Te vamos a acompañar a crear el hábito de tomar agua, con un compañero que celebra contigo.</p>
               <label htmlFor="ob-name" className="mt-8 block text-sm font-semibold">¿Cómo te llamamos?</label>
               <input id="ob-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoComplete="given-name"
@@ -87,23 +98,6 @@ function Onboarding() {
           )}
 
           {step === 1 && (
-            <section className="pop-in">
-              <h1 className="text-3xl font-extrabold tracking-tight">Tu meta diaria</h1>
-              <p className="mt-2 text-muted">La eliges tú y la puedes cambiar cuando quieras. H2O no calcula requerimientos médicos.</p>
-              <div className="mt-8 grid grid-cols-2 gap-3">
-                {GOALS.map((g) => (
-                  <button type="button" key={g} onClick={() => setGoal(g)} aria-pressed={goal === g}
-                    className={`rounded-2xl border-2 py-5 text-xl font-extrabold transition ${goal === g ? "border-h2o-500 bg-white text-h2o-700 shadow-sm" : "border-transparent bg-white/70 text-navy"}`}>
-                    {ml(g)}
-                  </button>
-                ))}
-              </div>
-              <label className="mt-5 block text-sm font-semibold" htmlFor="ob-goal">Otra cantidad: {ml(goal)}</label>
-              <input id="ob-goal" type="range" min={MIN_GOAL_ML} max={MAX_GOAL_ML} step={100} value={goal} onChange={(e) => setGoal(Number(e.target.value))} className="mt-2 w-full accent-h2o-600" />
-            </section>
-          )}
-
-          {step === 2 && (
             <section className="pop-in">
               <h1 className="text-3xl font-extrabold tracking-tight">Elige tu compañero</h1>
               <p className="mt-2 text-muted">Celebrará tus logros y podrás vestirlo con lo que ganes.</p>
@@ -125,7 +119,7 @@ function Onboarding() {
             </section>
           )}
 
-          {step === 3 && (
+          {step === 2 && (
             <section className="pop-in">
               <h1 className="text-3xl font-extrabold tracking-tight">¿Cómo se llama?</h1>
               <div className="mt-4 flex justify-center">
@@ -147,18 +141,67 @@ function Onboarding() {
             </section>
           )}
 
-          <div className="mt-auto flex gap-3 pt-8">
-            {step > 0 && (
-              <button type="button" onClick={() => setStep(step - 1)} className="rounded-2xl bg-white px-5 py-4 font-semibold text-muted ring-1 ring-slate-200" aria-label="Atrás">
-                <ArrowLeft size={20} />
-              </button>
-            )}
-            <button type="submit" disabled={!canNext || busy}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-navy py-4 text-lg font-bold text-white shadow-lg shadow-navy/20 transition active:scale-[0.98] disabled:opacity-40"
-              data-testid="ob-next">
-              {step < 3 ? <>Continuar <ArrowRight size={20} /></> : busy ? "Guardando…" : <>¡Empezar! <Check size={20} /></>}
-            </button>
-          </div>
+          {step === 3 && goalMode === "elegir" && (
+            <section className="pop-in">
+              <h1 className="text-3xl font-extrabold tracking-tight">Tu meta diaria</h1>
+              <p className="mt-2 text-muted">Puedes calcular un punto de partida con 5 preguntas rápidas, o elegirla tú. Siempre la puedes cambiar.</p>
+              <div className="mt-6 space-y-3">
+                <button type="button" onClick={() => setGoalMode("calcular")} className="flex w-full items-center gap-4 rounded-3xl bg-white p-5 text-left shadow-sm ring-2 ring-h2o-200 transition active:scale-[0.99]" data-testid="ob-calcular">
+                  <span className="rounded-2xl bg-h2o-50 p-3 text-h2o-600"><Calculator size={26} /></span>
+                  <span><span className="block text-lg font-extrabold">Calcular mi meta</span><span className="block text-sm text-muted">Edad, peso, ejercicio y calor. Menos de un minuto.</span></span>
+                </button>
+                <button type="button" onClick={() => setGoalMode("manual")} className="flex w-full items-center gap-4 rounded-3xl bg-white/80 p-5 text-left ring-1 ring-h2o-100 transition active:scale-[0.99]" data-testid="ob-manual">
+                  <span className="rounded-2xl bg-slate-50 p-3 text-slate-500"><Hand size={26} /></span>
+                  <span><span className="block text-lg font-extrabold">Elegirla yo</span><span className="block text-sm text-muted">Tengo una meta en mente.</span></span>
+                </button>
+              </div>
+            </section>
+          )}
+
+          {step === 3 && goalMode === "calcular" && (
+            <HydrationWizard
+              pet={{ species, color }}
+              currentGoalMl={goal}
+              onCancel={() => setGoalMode("elegir")}
+              onFinish={(r) => finish(r)}
+              saveLabel="Usar esta meta y empezar"
+            />
+          )}
+
+          {step === 3 && goalMode === "manual" && (
+            <section className="pop-in">
+              <h1 className="text-3xl font-extrabold tracking-tight">Tu meta diaria</h1>
+              <p className="mt-2 text-muted">La eliges tú y la puedes cambiar cuando quieras.</p>
+              <div className="mt-8 grid grid-cols-2 gap-3">
+                {GOALS.map((g) => (
+                  <button type="button" key={g} onClick={() => setGoal(g)} aria-pressed={goal === g}
+                    className={`rounded-2xl border-2 py-5 text-xl font-extrabold transition ${goal === g ? "border-h2o-500 bg-white text-h2o-700 shadow-sm" : "border-transparent bg-white/70 text-navy"}`}>
+                    {ml(g)}
+                  </button>
+                ))}
+              </div>
+              <label className="mt-5 block text-sm font-semibold" htmlFor="ob-goal">Otra cantidad: {ml(goal)}</label>
+              <input id="ob-goal" type="range" min={MIN_GOAL_ML} max={MAX_GOAL_ML} step={100} value={goal} onChange={(e) => setGoal(Number(e.target.value))} className="mt-2 w-full accent-h2o-600" />
+              {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
+            </section>
+          )}
+
+          {!(step === 3 && goalMode === "calcular") && (
+            <div className="mt-auto flex gap-3 pt-8">
+              {step > 0 && (
+                <button type="button" onClick={() => (step === 3 && goalMode !== "elegir" ? setGoalMode("elegir") : setStep(step - 1))} className="rounded-2xl bg-white px-5 py-4 font-semibold text-muted ring-1 ring-slate-200" aria-label="Atrás">
+                  <ArrowLeft size={20} />
+                </button>
+              )}
+              {!(step === 3 && goalMode === "elegir") && (
+                <button type="submit" disabled={!canNext || busy}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-navy py-4 text-lg font-bold text-white shadow-lg shadow-navy/20 transition active:scale-[0.98] disabled:opacity-40"
+                  data-testid="ob-next">
+                  {step < 3 ? <>Continuar <ArrowRight size={20} /></> : busy ? "Guardando…" : <>¡Empezar! <Check size={20} /></>}
+                </button>
+              )}
+            </div>
+          )}
         </form>
       </div>
     </div>

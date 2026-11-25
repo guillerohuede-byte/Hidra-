@@ -3,7 +3,7 @@ import asyncio, re, sys
 from playwright.async_api import async_playwright
 
 B = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:3200"
-PAGES = ["/login", "/registro", "/recuperar", "/", "/historial", "/botellas", "/metas", "/companero", "/tienda", "/misiones", "/perfil", "/nfc/BNOEXIS2"]
+PAGES = ["/login", "/registro", "/recuperar", "/", "/historial", "/botellas", "/metas", "/hidratacion", "/companero", "/tienda", "/misiones", "/perfil", "/nfc/BNOEXIS2"]
 CHECK = """() => {
   const doc = document.documentElement;
   const overflow = doc.scrollWidth > doc.clientWidth + 1;
@@ -12,7 +12,8 @@ CHECK = """() => {
   const zoom = [...document.querySelectorAll('input:not([type=checkbox]):not([type=range]), select, textarea')].filter(e => parseFloat(getComputedStyle(e).fontSize) < 16).map(e => e.id || e.name || e.tagName);
   const small = [...document.querySelectorAll('button, a')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && (r.height < 28 || r.width < 28) && getComputedStyle(e).visibility !== 'hidden'; }).map(e => (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0,25));
   const mock = document.body.innerText.match(/modo de prueba|mock|DEMO/i);
-  return { overflow, wide, dev, zoom, small, mock: mock && mock[0] };
+  const marca = (document.body.innerText + ' ' + document.title).match(/H2O|H₂O/);
+  return { overflow, wide, dev, zoom, small, mock: (mock && mock[0]) || (marca && 'MARCA ANTIGUA: ' + marca[0]) };
 }"""
 
 async def main():
@@ -27,9 +28,10 @@ async def main():
             # cuenta nueva con mascota y algo de ropa
             await pg.goto(B + "/login"); await pg.fill("#email", f"r{w}@uai.cl"); await pg.fill("#password", "secreta123")
             await pg.get_by_role("button", name="Iniciar sesión").click(); await pg.wait_for_url(re.compile("/bienvenida"))
-            await pg.fill("#ob-name", "Benjamín Alejandro"); await pg.get_by_test_id("ob-next").click(); await pg.get_by_test_id("ob-next").click()
+            await pg.fill("#ob-name", "Benjamín Alejandro"); await pg.get_by_test_id("ob-next").click()
             await pg.get_by_test_id("species-conejo").click(); await pg.get_by_test_id("ob-next").click()
             await pg.get_by_label("Nombre de tu compañero").fill("Saltarín Veloz"); await pg.get_by_test_id("ob-next").click()
+            await pg.get_by_test_id("ob-manual").click(); await pg.get_by_test_id("ob-next").click()
             await pg.wait_for_url(B + "/"); await pg.wait_for_timeout(600)
             c = pg.get_by_test_id("celebration")
             if await c.count(): await c.get_by_role("button", name="¡Genial!").click()

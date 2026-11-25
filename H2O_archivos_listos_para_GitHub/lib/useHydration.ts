@@ -11,7 +11,13 @@ import { entriesForDate, totalMl, DEFAULT_GOAL_ML } from "./storage";
 export function useHydration() {
   const s = useH2O();
   const d = s.data;
-  const goal = d?.profile.goalMl ?? DEFAULT_GOAL_ML;
+  // Meta de HOY: la base, más el ajuste si hoy es día de entrenamiento
+  const goal = d?.summary.todayGoalMl ?? d?.profile.goalMl ?? DEFAULT_GOAL_ML;
+  const baseGoal = d?.profile.goalMl ?? DEFAULT_GOAL_ML;
+  const trainingExtra = d?.profile.trainingExtraMl ?? 0;
+  const trainingToday = !!d?.summary.trainingToday;
+  /** Meta guardada de un día (los días pasados no cambian si después se cambia la meta) */
+  const goalForDay = (day: string) => d?.dayGoals?.[day] ?? (day === s.todayKey ? goal : baseGoal);
   const entries = useMemo(() => d?.entries ?? [], [d?.entries]);
   const today = useMemo(() => (s.todayKey ? entriesForDate(entries, s.todayKey) : []), [entries, s.todayKey]);
   const total = totalMl(today);
@@ -25,6 +31,11 @@ export function useHydration() {
     todayKey: s.todayKey,
     total,
     goal,
+    baseGoal,
+    trainingExtra,
+    trainingToday,
+    goalForDay,
+    setTrainingToday: s.setTrainingToday,
     pct,
     remaining: Math.max(goal - total, 0),
     addEntry: s.addEntry,

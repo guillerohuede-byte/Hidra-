@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LogOut, Milk, Target, ShoppingBag, PawPrint, Globe, Accessibility, CloudUpload, ShieldCheck } from "lucide-react";
+import { ChevronRight, Droplets, LogOut, Milk, Target, ShoppingBag, PawPrint, Globe, Accessibility, CloudUpload, ShieldCheck } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import PetAvatar from "@/components/pet/PetAvatar";
 import Toast from "@/components/Toast";
@@ -66,7 +66,8 @@ export default function Perfil() {
       <section className="mt-4 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-h2o-100">
         {[
           { href: "/botellas", icon: Milk, label: "Mis botellas y stickers NFC" },
-          { href: "/metas", icon: Target, label: `Meta diaria · ${ml(p.goalMl)}` },
+          { href: "/hidratacion", icon: Droplets, label: "Hidratación · meta personal" },
+          { href: "/metas", icon: Target, label: `Metas · base ${ml(p.goalMl)}` },
           { href: "/companero", icon: PawPrint, label: "Mi compañero y armario" },
           { href: "/tienda", icon: ShoppingBag, label: "Tienda" },
         ].map(({ href, icon: Icon, label }) => (
@@ -117,7 +118,7 @@ export default function Perfil() {
 
       <section className="mt-4 rounded-3xl bg-white p-5 text-xs leading-relaxed text-muted shadow-sm ring-1 ring-h2o-100">
         <p className="flex items-center gap-1.5 font-semibold text-ink"><ShieldCheck size={15} className="text-emerald-600" /> Tu privacidad</p>
-        Tus datos solo los ves tú: no hay perfiles públicos ni rankings. H2O es una herramienta de hábitos y no reemplaza recomendaciones médicas.
+        Tus datos solo los ves tú: no hay perfiles públicos ni rankings. Hidra es una herramienta de hábitos y no reemplaza recomendaciones médicas.
       </section>
 
       <button onClick={logout} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 font-bold text-red-600 ring-1 ring-red-100" data-testid="logout">

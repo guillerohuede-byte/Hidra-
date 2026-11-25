@@ -134,3 +134,28 @@ describe("premios", () => {
     expect(g.find((x) => x.key === "level:5")?.item).toBe("bufanda-marejada");
   });
 });
+
+describe("metas por día (cambiar la meta no es retroactivo)", () => {
+  const T = "2026-11-25";
+  const Y = "2026-11-24";
+  const st = (over: Partial<GameState>): GameState => ({
+    today: T, goalMl: 2000, onboarded: true, entries: [], freezes: [], ownedPurchased: 0, keys: new Set(), shields: 0, xp: 0, goalsMet: 0, ...over,
+  });
+  it("bajar la meta hoy no da el premio de meta de ayer", () => {
+    const s = st({ goalMl: 1000, dayGoals: { [Y]: 2000 }, entries: [{ localDate: Y, amountMl: 1500, source: "manual" }] });
+    expect(pendingRewards(s).grants.some((g) => g.key === `goal:${Y}`)).toBe(false);
+  });
+  it("la meta de hoy usa la guardada (por ejemplo, con el ajuste de entrenamiento)", () => {
+    const s = st({ goalMl: 2000, dayGoals: { [T]: 2500 }, entries: [{ localDate: T, amountMl: 2200, source: "manual" }] });
+    expect(pendingRewards(s).grants.some((g) => g.key === `goal:${T}`)).toBe(false);
+    s.dayGoals = { [T]: 2000 }; // hoy descanso
+    expect(pendingRewards(s).grants.some((g) => g.key === `goal:${T}`)).toBe(true);
+  });
+  it("cumplir la meta dos veces el mismo día (p. ej. alternando entrenamiento) no duplica el premio", () => {
+    const s = st({ dayGoals: { [T]: 2000 }, entries: [{ localDate: T, amountMl: 2600, source: "manual" }] });
+    const first = pendingRewards(s).grants;
+    s.keys = new Set(first.map((g) => g.key));
+    s.dayGoals = { [T]: 2500 };
+    expect(pendingRewards(s).grants.filter((g) => g.kind === "meta")).toHaveLength(0);
+  });
+});

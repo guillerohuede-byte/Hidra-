@@ -86,7 +86,7 @@ export default function NfcRegister({ code }: { code: string }) {
       {status.kind === "invalid" && (
         <ErrorCard
           title="Este enlace no es válido"
-          text={`El código «${code.slice(0, 20)}» no corresponde a una botella de H2O. Revisa que el sticker tenga el enlace completo, copiado desde "Configurar NFC".`}
+          text={`El código «${code.slice(0, 20)}» no corresponde a una botella de Hidra. Revisa que el sticker tenga el enlace completo, copiado desde "Configurar NFC".`}
         />
       )}
 
