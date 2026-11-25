@@ -1,22 +1,25 @@
-// Modelos de datos de H2O.
+// Modelos de datos de H2O (forma que usan las pantallas).
 
 export type Bottle = {
-  id: string; // código único y estable (ej. "B7K3QX9M"). Irá dentro del link del sticker NFC.
+  id: string; // código único y permanente (ej. "B7K3QX9M"): va dentro del link del sticker NFC
   name: string;
-  capacityMl: number; // capacidad total de la botella
+  capacityMl: number;
   defaultAmountMl: number; // cantidad habitual que se propone al registrar
-  color: string; // color de la silueta (se asigna automáticamente)
-  createdAt: string; // ISO
-  tagLinkedAt?: string; // ISO — se completará en el módulo NFC al vincular un sticker
+  color: string;
+  createdAt: string;
+  tagLinkedAt?: string | null; // primer uso exitoso del sticker
+  deletedAt?: string | null; // botella eliminada (el código queda reservado)
 };
 
 export type IntakeEntry = {
-  id: string; // identificador único
+  id: string;
   amountMl: number;
-  timestamp: string; // instante exacto (ISO), sirve para ordenar
-  date: string; // fecha LOCAL del usuario, "2026-11-23": define a qué día pertenece
-  time: string; // hora local, "14:05"
+  timestamp: string; // instante exacto (ISO)
+  date: string; // día LOCAL del usuario "2026-11-23" (lo fija el servidor según su zona horaria)
+  time: string; // hora local "14:05"
   source: "manual" | "nfc";
-  bottleId?: string; // botella usada (los registros antiguos no lo tienen)
-  bottleName?: string; // copia del nombre al momento de registrar: el historial no cambia si la botella se edita o elimina
+  imported?: boolean;
+  bottleId?: string | null;
+  bottleName?: string | null; // copia del nombre: el historial no cambia si la botella se edita o elimina
+  pending?: boolean; // aún guardándose
 };

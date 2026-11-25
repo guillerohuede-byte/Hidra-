@@ -78,8 +78,9 @@ export default function Metas() {
         <button
           disabled={!dirty}
           onClick={() => {
-            h.setGoal(goal);
-            setToast(`Meta guardada: ${ml(goal)}`);
+            h.setGoal(goal)
+              .then(() => setToast(`Meta guardada: ${ml(goal)}`))
+              .catch((e) => setToast(e instanceof Error ? e.message : "No se pudo guardar la meta"));
           }}
           className="mt-6 w-full rounded-2xl bg-navy py-4 font-bold text-white transition hover:bg-navy-hover disabled:cursor-not-allowed disabled:bg-navy/40"
         >

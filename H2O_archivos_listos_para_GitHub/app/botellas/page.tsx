@@ -33,13 +33,13 @@ export default function Botellas() {
     setFormOpen(true);
   };
 
-  const save = (input: BottleInput): string | null => {
+  const save = async (input: BottleInput): Promise<string | null> => {
     try {
       if (editing) {
-        h.updateBottle(editing.id, input);
+        await h.updateBottle(editing.id, input);
         setToast("Cambios guardados");
       } else {
-        const b = h.addBottle(input);
+        const b = await h.addBottle(input);
         setToast(h.bottles.length === 0 ? `${b.name} agregada y en uso` : `${b.name} agregada`);
       }
       setFormOpen(false);
@@ -49,11 +49,16 @@ export default function Botellas() {
     }
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!toDelete) return;
-    h.deleteBottle(toDelete.id);
-    setToast(`${toDelete.name} eliminada`);
+    const b = toDelete;
     setToDelete(null);
+    try {
+      await h.deleteBottle(b.id);
+      setToast(`${b.name} eliminada`);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "No se pudo eliminar");
+    }
   };
 
   const hasBottles = h.bottles.length > 0;
