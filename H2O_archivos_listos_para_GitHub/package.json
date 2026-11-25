@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "dev:prueba": "NEXT_PUBLIC_H2O_MOCK=1 next dev -p 3100",
+    "test:e2e": "python3 pruebas/test_gamificacion.py"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
