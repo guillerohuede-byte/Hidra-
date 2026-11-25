@@ -9,7 +9,10 @@ import AmountPicker, { useAmountChoice } from "./AmountPicker";
 import type { Bottle } from "@/lib/types";
 import { ml } from "@/lib/format";
 import { useHydration, formatPct } from "@/lib/useHydration";
-import { getBottle, getEntries, isValidBottleId, markTagUsed, wasBottleDeleted } from "@/lib/storage";
+import { isValidBottleId } from "@/lib/storage";
+import { useH2O } from "@/lib/store";
+import type { Reward } from "@/lib/backend/types";
+import PetAvatar from "./pet/PetAvatar";
 
 // Pantalla que se abre al escanear el sticker.
 // Flujo: Escanear → Confirmar → Listo. NUNCA registra sola.
@@ -19,7 +22,7 @@ type Status =
   | { kind: "invalid" }
   | { kind: "missing"; deleted: boolean }
   | { kind: "ready"; bottle: Bottle }
-  | { kind: "done"; bottle: Bottle | null; amountMl: number; again: boolean };
+  | { kind: "done"; bottle: Bottle | null; amountMl: number; again: boolean; rewards: Reward[] };
 
 // Recuerda el último registro NFC de esta pestaña, para que RECARGAR la
 // página no muestre de nuevo el botón (un escaneo nuevo sí lo muestra).
@@ -45,20 +48,27 @@ function isReload() {
 
 export default function NfcRegister({ code }: { code: string }) {
   const h = useHydration();
+  const store = useH2O();
   const [status, setStatus] = useState<Status>({ kind: "loading" });
+  const decided = useRef(false); // decidir una sola vez por escaneo (los refrescos no cambian la pantalla)
 
   useEffect(() => {
     if (!isValidBottleId(code)) return setStatus({ kind: "invalid" });
-    const bottle = getBottle(code);
-    if (!bottle) return setStatus({ kind: "missing", deleted: wasBottleDeleted(code) });
+    if (!h.ready || decided.current) return;
+    decided.current = true;
+    // Las botellas vienen de la CUENTA: funciona igual en Safari y en la app instalada
+    const bottle = h.allBottles.find((b) => b.id === code);
+    if (!bottle || bottle.deletedAt) return setStatus({ kind: "missing", deleted: !!bottle?.deletedAt });
     const last = readLast();
     // Recarga justo después de registrar (y el registro sigue existiendo) → no ofrecer repetirlo
     const justDone = last && last.bottleId === code && Date.now() - last.at < 30 * 60_000;
-    if (isReload() && justDone && getEntries().some((e) => e.id === last.entryId)) {
-      return setStatus({ kind: "done", bottle, amountMl: last.amountMl, again: true });
+    if (isReload() && justDone && h.entries.some((e) => e.id === last.entryId)) {
+      return setStatus({ kind: "done", bottle, amountMl: last.amountMl, again: true, rewards: [] });
     }
     setStatus({ kind: "ready", bottle });
-  }, [code]);
+  }, [code, h.ready, h.allBottles, h.entries]);
+
+  const pet = store.data?.pet;
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md select-none flex-col px-5 pb-8 pt-6">
@@ -86,7 +96,7 @@ export default function NfcRegister({ code }: { code: string }) {
           text={
             status.deleted
               ? "El sticker apunta a una botella que eliminaste. No se registró nada. Puedes crear una botella nueva y grabar su enlace en el sticker."
-              : "No está guardada en este navegador. Puede que la hayas configurado en otro celular o navegador, o que se hayan borrado los datos. No se registró nada."
+              : `Este sticker no está vinculado a tu cuenta${store.data?.profile.email ? ` (${store.data.profile.email})` : ""}. Puede ser de otra persona, o de una botella que creaste antes de tener cuenta: si es así, impórtala desde Perfil. No se registró nada.`
           }
         />
       )}
@@ -96,13 +106,13 @@ export default function NfcRegister({ code }: { code: string }) {
           bottle={status.bottle}
           todayMl={h.total}
           goal={h.goal}
-          onDone={(amountMl, entryId) => {
+          onDone={(amountMl, entryId, rewards) => {
             try {
               sessionStorage.setItem(LAST_KEY, JSON.stringify({ bottleId: status.bottle.id, entryId, amountMl, at: Date.now() }));
             } catch {
               /* sin sessionStorage: igual funciona */
             }
-            setStatus({ kind: "done", bottle: status.bottle, amountMl, again: false });
+            setStatus({ kind: "done", bottle: status.bottle, amountMl, again: false, rewards });
           }}
         />
       )}
@@ -115,6 +125,8 @@ export default function NfcRegister({ code }: { code: string }) {
           goal={h.goal}
           pct={h.pct}
           fromReload={status.again}
+          rewards={status.rewards}
+          pet={pet ? { ...pet, equipment: store.data?.equipment ?? {}, level: store.data?.summary.level ?? 1 } : null}
           onAnother={() => status.bottle && setStatus({ kind: "ready", bottle: status.bottle })}
         />
       )}
@@ -131,7 +143,7 @@ function Confirm({
   bottle: Bottle;
   todayMl: number;
   goal: number;
-  onDone: (amountMl: number, entryId: string) => void;
+  onDone: (amountMl: number, entryId: string, rewards: Reward[]) => void;
 }) {
   const h = useHydration();
   const pick = useAmountChoice(bottle.defaultAmountMl);
@@ -139,15 +151,18 @@ function Confirm({
   const [error, setError] = useState<string | null>(null);
   const lock = useRef(false); // un solo registro aunque se toque dos veces
 
-  const confirm = () => {
+  // Una clave por escaneo: si la red falla y se reintenta, el servidor no duplica
+  const clientKey = useRef(typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+
+  const confirm = async () => {
     if (!pick.valid || lock.current) return;
     lock.current = true;
     setBusy(true);
+    setError(null);
     try {
       // Misma función que el registro manual, con origen "nfc" y la botella
-      const entry = h.addEntry(pick.amount, "nfc", bottle.id);
-      markTagUsed(bottle.id);
-      onDone(pick.amount, entry.id);
+      const { entry, rewards } = await h.addEntry(pick.amount, "nfc", bottle.id, clientKey.current);
+      onDone(pick.amount, entry.id, rewards);
     } catch (e) {
       lock.current = false;
       setBusy(false);
@@ -210,6 +225,8 @@ function Done({
   pct,
   fromReload,
   onAnother,
+  rewards,
+  pet,
 }: {
   amountMl: number;
   bottle: Bottle | null;
@@ -218,7 +235,11 @@ function Done({
   pct: number;
   fromReload: boolean;
   onAnother: () => void;
+  rewards: Reward[];
+  pet: { species: string; name: string; color: string; equipment: Record<string, string>; level: number } | null;
 }) {
+  const gotitas = rewards.reduce((a, r) => a + r.gotitas, 0);
+  const xp = rewards.reduce((a, r) => a + r.xp, 0);
   // Los botones se activan tras un instante: un doble toque sobre "Registrar"
   // no debe caer en ellos.
   const [armed, setArmed] = useState(false);
@@ -230,17 +251,27 @@ function Done({
   return (
     <main className="flex flex-1 flex-col" role="status" aria-live="polite">
       <section className="flex flex-col items-center rounded-3xl bg-white px-6 py-8 text-center shadow-sm ring-1 ring-h2o-100">
-        <span className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white">
-            <Check size={32} strokeWidth={3} />
+        {pet ? (
+          <PetAvatar species={pet.species} color={pet.color} equipment={pet.equipment} level={pet.level} size={130}
+            anim={fromReload ? null : pct >= 100 ? "celebrate" : "drink"} mood="feliz" title={pet.name} />
+        ) : (
+          <span className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white">
+              <Check size={32} strokeWidth={3} />
+            </span>
           </span>
-        </span>
+        )}
         <h1 className="text-2xl font-bold tracking-tight" data-testid="nfc-done">
           {fromReload ? "Ya registraste" : "¡Listo!"} {ml(amountMl)}
         </h1>
         <p className="mt-1 text-sm text-muted">
           {fromReload ? "Este consumo ya quedó guardado; recargar no lo repite." : `Registrados con ${bottle?.name ?? "tu botella"}`}
         </p>
+        {(gotitas > 0 || xp > 0) && (
+          <p className="pop-in mt-3 rounded-full bg-amber-50 px-3 py-1 text-sm font-bold text-amber-700" data-testid="nfc-reward">
+            +{gotitas} Gotitas · +{xp} XP
+          </p>
+        )}
 
         <div className="mt-6 w-full">
           <div className="mb-1.5 flex items-baseline justify-between text-sm">

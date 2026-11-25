@@ -39,9 +39,11 @@ export default function Historial() {
 
   const confirmDelete = () => {
     if (!toDelete) return;
-    h.deleteEntry(toDelete.id);
-    setToast(`Registro de ${ml(toDelete.amountMl)} eliminado`);
+    const e = toDelete;
     setToDelete(null);
+    h.deleteEntry(e.id)
+      .then(() => setToast(`Registro de ${ml(e.amountMl)} eliminado`))
+      .catch((err) => setToast(err instanceof Error ? err.message : "No se pudo eliminar"));
   };
 
   return (

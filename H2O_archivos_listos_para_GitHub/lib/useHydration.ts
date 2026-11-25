@@ -1,73 +1,42 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import type { Bottle, IntakeEntry } from "./types";
-import * as store from "./storage";
+import { useMemo } from "react";
+import { useH2O } from "./store";
+import { entriesForDate, totalMl, DEFAULT_GOAL_ML } from "./storage";
 
 /**
- * Hook único que usan las pantallas para leer y modificar los datos.
- * - Se actualiza solo cuando cambian los datos (también desde otra pestaña).
- * - Revisa cada 30 s y al volver a la app si cambió el día (medianoche).
+ * Vista simple de los datos de hidratación para las pantallas
+ * (misma forma que en los módulos anteriores, ahora conectada a la cuenta).
  */
 export function useHydration() {
-  const [ready, setReady] = useState(false);
-  const [entries, setEntries] = useState<IntakeEntry[]>([]);
-  const [goal, setGoalState] = useState(store.DEFAULT_GOAL_ML);
-  const [todayKey, setTodayKey] = useState("");
-  const [bottles, setBottles] = useState<Bottle[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const refresh = useCallback(() => {
-    setEntries(store.getEntries());
-    setGoalState(store.getGoal());
-    setTodayKey(store.localDateKey(new Date()));
-    setBottles(store.getBottles());
-    setSelectedId(store.getSelectedBottleId());
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    refresh();
-    const unsub = store.subscribe(refresh);
-    const checkDay = () => {
-      const k = store.localDateKey(new Date());
-      setTodayKey((prev) => (prev === k ? prev : k));
-    };
-    const timer = window.setInterval(checkDay, 30_000);
-    const onVisible = () => document.visibilityState === "visible" && refresh();
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", refresh);
-    return () => {
-      unsub();
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", refresh);
-    };
-  }, [refresh]);
-
-  const today = todayKey ? store.entriesForDate(entries, todayKey) : [];
-  const total = store.totalMl(today);
+  const s = useH2O();
+  const d = s.data;
+  const goal = d?.profile.goalMl ?? DEFAULT_GOAL_ML;
+  const entries = useMemo(() => d?.entries ?? [], [d?.entries]);
+  const today = useMemo(() => (s.todayKey ? entriesForDate(entries, s.todayKey) : []), [entries, s.todayKey]);
+  const total = totalMl(today);
   const pct = goal > 0 ? (total / goal) * 100 : 0;
+  const bottles = useMemo(() => (d?.bottles ?? []).filter((b) => !b.deletedAt), [d?.bottles]);
 
   return {
-    ready, // false durante el primer instante (antes de leer el navegador)
+    ready: s.status === "ready" && !!d,
     entries,
-    today, // registros de hoy, del más reciente al más antiguo
-    todayKey,
+    today,
+    todayKey: s.todayKey,
     total,
     goal,
-    pct, // puede superar 100
+    pct,
     remaining: Math.max(goal - total, 0),
-    addEntry: store.addEntry,
-    deleteEntry: store.deleteEntry,
-    setGoal: store.setGoal,
-    // Botellas
+    addEntry: s.addEntry,
+    deleteEntry: s.deleteEntry,
+    setGoal: (goalMl: number) => s.updateProfile({ goalMl }),
     bottles,
-    selectedBottle: bottles.find((b) => b.id === selectedId) ?? null,
-    addBottle: store.addBottle,
-    updateBottle: store.updateBottle,
-    deleteBottle: store.deleteBottle,
-    selectBottle: store.selectBottle,
+    allBottles: d?.bottles ?? [],
+    selectedBottle: bottles.find((b) => b.id === d?.profile.selectedBottleId) ?? null,
+    addBottle: s.addBottle,
+    updateBottle: s.updateBottle,
+    deleteBottle: s.deleteBottle,
+    selectBottle: s.selectBottle,
   };
 }
 

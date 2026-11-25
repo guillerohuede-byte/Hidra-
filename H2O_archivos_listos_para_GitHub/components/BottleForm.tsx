@@ -21,7 +21,7 @@ type Props = {
   bottle?: Bottle | null; // si viene, estamos editando
   others: Bottle[];
   onClose: () => void;
-  onSave: (input: BottleInput) => string | null; // devuelve error o null
+  onSave: (input: BottleInput) => Promise<string | null>; // devuelve error o null
 };
 
 // El formulario se crea de nuevo cada vez que se abre, ya precargado.
@@ -62,11 +62,15 @@ function FormBody({ bottle, others, onClose, onSave }: Props) {
   };
   const error = validateBottle(input, others, bottle?.id);
 
-  const submit = (e: React.FormEvent) => {
+  const [saving, setSaving] = useState(false);
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched(true);
-    if (error) return;
-    const err = onSave(input);
+    if (error || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    const err = await onSave(input);
+    setSaving(false);
     if (err) setSaveError(err);
   };
 
@@ -172,6 +176,7 @@ function FormBody({ bottle, others, onClose, onSave }: Props) {
 
         <button
           type="submit"
+          disabled={saving}
           className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-navy py-4 text-base font-bold text-white transition hover:bg-navy-hover active:scale-[0.98]"
         >
           <Check size={20} strokeWidth={2.6} /> {bottle ? "Guardar cambios" : "Agregar botella"}

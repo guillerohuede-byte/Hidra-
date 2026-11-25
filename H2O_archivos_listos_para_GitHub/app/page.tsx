@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { Plus, Nfc, ChevronRight, Pencil, Droplet, Milk, ListChecks, Target } from "lucide-react";
+import { Plus, Nfc, ChevronRight, Pencil, Droplet, Milk, ListChecks, Target, Flame, Sparkles, CircleCheck, Circle } from "lucide-react";
 import Logo from "@/components/Logo";
 import RegisterSheet from "@/components/RegisterSheet";
 import BottleIcon from "@/components/BottleIcon";
@@ -11,9 +11,15 @@ import EntryList from "@/components/EntryList";
 import { ml } from "@/lib/format";
 import { longDate } from "@/lib/useNow";
 import { useHydration, formatPct, progressMessage } from "@/lib/useHydration";
+import { useH2O } from "@/lib/store";
+import { useGame } from "@/lib/useGame";
+import PetStage from "@/components/pet/PetStage";
+import GameChips from "@/components/GameChips";
 
 export default function Inicio() {
   const h = useHydration();
+  const store = useH2O();
+  const g = useGame();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const clearToast = useCallback(() => setToast(null), []);
@@ -25,20 +31,34 @@ export default function Inicio() {
     // Se guarda al instante, pero el panel se cierra ~0,35 s después:
     // así un segundo toque rápido cae sobre el botón (ya bloqueado) y no
     // sobre lo que hay debajo del panel.
-    try {
-      h.addEntry(amount, "manual", bottle?.id);
-      setToast(`${ml(amount)} registrados`);
-    } catch {
-      setToast("No se pudo guardar el registro");
-    }
+    // El registro aparece al instante; si el servidor falla, se quita y avisamos.
+    h.addEntry(amount, "manual", bottle?.id ?? null)
+      .then(({ rewards }) => {
+        const gt = rewards.reduce((a, r) => a + r.gotitas, 0);
+        setToast(gt > 0 ? `${ml(amount)} registrados · +${gt} Gotitas` : `${ml(amount)} registrados`);
+      })
+      .catch((e) => setToast(e instanceof Error ? e.message : "No se pudo guardar el registro"));
     window.setTimeout(() => setSheetOpen(false), 350);
   };
 
   return (
     <>
-      <header className="mb-6 flex items-center justify-between md:hidden">
-        <Logo compact />
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <span className="md:hidden">
+          <Logo compact />
+        </span>
+        <p className="hidden text-lg font-bold md:block">Hola{store.data?.profile.displayName ? `, ${store.data.profile.displayName}` : ""} 👋</p>
+        <GameChips />
       </header>
+
+      {/* Mascota */}
+      <section className="relative mb-4 overflow-hidden rounded-3xl bg-gradient-to-b from-h2o-100 via-h2o-50 to-white px-4 pb-3 pt-4 ring-1 ring-h2o-100">
+        <div aria-hidden className="absolute inset-x-0 bottom-0 h-16 bg-[radial-gradient(ellipse_at_bottom,rgba(56,189,248,0.25),transparent_70%)]" />
+        <PetStage pct={h.pct} count={h.today.length} />
+        <Link href="/companero" className="relative mx-auto mt-1 block w-fit rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-h2o-700 ring-1 ring-h2o-100">
+          {store.data?.pet?.name ?? "Tu compañero"} · Nivel {g.level} <ChevronRight size={12} className="inline" />
+        </Link>
+      </section>
 
       {/* Saludo + progreso */}
       <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-h2o-100">
@@ -110,6 +130,30 @@ export default function Inicio() {
         >
           <Plus size={22} strokeWidth={2.6} /> Registrar agua
         </button>
+      </section>
+
+      {/* Misiones de hoy */}
+      <section className="mt-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-h2o-100" data-testid="missions-preview">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="flex items-center gap-1.5 font-bold"><Sparkles size={18} className="text-amber-500" /> Misiones de hoy</h2>
+          <Link href="/misiones" className="flex items-center text-sm font-semibold text-h2o-600">
+            Ver todas <ChevronRight size={16} />
+          </Link>
+        </div>
+        <ul className="space-y-2">
+          {g.daily.map((m) => (
+            <li key={m.id} className="flex items-center gap-3 text-sm">
+              {m.done ? <CircleCheck size={20} className="shrink-0 text-emerald-500" /> : <Circle size={20} className="shrink-0 text-slate-300" />}
+              <span className={`flex-1 ${m.done ? "text-muted line-through" : ""}`}>{m.title}</span>
+              <span className="text-xs font-semibold text-muted">{m.done ? `+${m.gotitas}` : `${m.progress}/${m.target}`}</span>
+            </li>
+          ))}
+        </ul>
+        {g.streak > 0 && (
+          <p className="mt-3 flex items-center gap-1.5 rounded-2xl bg-orange-50 px-3 py-2 text-xs font-medium text-orange-800">
+            <Flame size={14} /> {g.activeToday ? `Racha de ${g.streak} ${g.streak === 1 ? "día" : "días"}. ¡Bien!` : `Llevas ${g.streak} ${g.streak === 1 ? "día" : "días"}: un registro hoy la mantiene.`}
+          </p>
+        )}
       </section>
 
       {/* Tarjetas resumen */}
