@@ -153,7 +153,7 @@ export default function Inicio() {
           </span>
           <span className="flex-1">
             <span className="block font-bold">Registra con un toque</span>
-            <span className="block text-sm text-h2o-100">Pronto: acerca tu celular al sticker de tu botella</span>
+            <span className="block text-sm text-h2o-100">Acerca tu celular al sticker de tu botella</span>
           </span>
         </div>
 
